@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Involute rack icon: linear bar with evenly-spaced teeth pointing up -->
+  <g fill="none" stroke="#4a4a4a" stroke-width="2.5" stroke-linejoin="round">
+    <!-- Base bar -->
+    <rect x="4" y="36" width="56" height="10" rx="2"/>
+    <!-- Six teeth -->
+    <rect x="7"  y="22" width="7" height="14" rx="1"/>
+    <rect x="18" y="22" width="7" height="14" rx="1"/>
+    <rect x="29" y="22" width="7" height="14" rx="1"/>
+    <rect x="40" y="22" width="7" height="14" rx="1"/>
+    <rect x="51" y="22" width="7" height="14" rx="1"/>
+  </g>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- SpurLine main icon: a spur gear outline -->
+  <g fill="none" stroke="#4a4a4a" stroke-width="3" stroke-linejoin="round">
+    <!-- Gear body -->
+    <circle cx="32" cy="32" r="14"/>
+    <!-- Bore -->
+    <circle cx="32" cy="32" r="4"/>
+    <!-- Teeth (8 teeth, simple rectangular) -->
+    <rect x="28" y="4"  width="8" height="10" rx="1"/>
+    <rect x="28" y="50" width="8" height="10" rx="1"/>
+    <rect x="4"  y="28" width="10" height="8" rx="1"/>
+    <rect x="50" y="28" width="10" height="8" rx="1"/>
+    <!-- Diagonal teeth -->
+    <rect x="9"  y="9"  width="8" height="10" rx="1" transform="rotate(45 13 14)"/>
+    <rect x="47" y="9"  width="8" height="10" rx="1" transform="rotate(-45 51 14)"/>
+    <rect x="9"  y="45" width="8" height="10" rx="1" transform="rotate(-45 13 50)"/>
+    <rect x="47" y="45" width="8" height="10" rx="1" transform="rotate(45 51 50)"/>
+  </g>
+</svg>
