@@ -1,21 +1,17 @@
 """
 SpurLine — SpurLineClient
 
-Handles the HTTP POST to LightBurn or MillMage.
+Handles HTTP communication with LightBurn or MillMage.
 
 Responsibilities
 ----------------
-- Build the request from an EndpointConfig + file bytes
+- Obtain a shared secret via ``POST /api/connect`` (local app pairing)
+- POST file uploads to ``/api/file/upload``
 - Compute an HMAC-SHA256 time-based Bearer token from the shared secret
-- Return a SendResult describing success or the category of failure
-- Never raise — all exceptions are caught and returned as SendResult
-
-Two error categories, as specified:
-  1. Connection / timeout — the listener is not running or unreachable
-  2. Auth failure        — HTTP 401 / 403, token is wrong or missing
+- Return result objects describing success or failure category
+- Never raise — all exceptions are caught and returned in results
 
 We use Python's stdlib ``urllib`` to avoid adding external dependencies.
-``requests`` can be swapped in trivially if preferred.
 """
 
 from __future__ import annotations
@@ -34,13 +30,38 @@ from freecad.spurline.prefs.preferences import EndpointConfig
 
 
 # ---------------------------------------------------------------------------
-# Result type
+# Application identity
 # ---------------------------------------------------------------------------
+
+APPLICATION_NAME = "FreeCAD (SpurLine)"
+
+
+# ---------------------------------------------------------------------------
+# Result types
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ConnectResult:
+    """
+    Outcome of a ``POST /api/connect`` pairing attempt.
+
+    Attributes
+    ----------
+    success : bool
+    secret : str
+        The shared secret returned by the server on approval.
+    error_message : str
+        Human-readable explanation, empty on success.
+    """
+    success:       bool = False
+    secret:        str  = ""
+    error_message: str  = ""
+
 
 @dataclass
 class SendResult:
     """
-    Outcome of a single REST send attempt.
+    Outcome of a single REST file-upload attempt.
 
     Attributes
     ----------
@@ -65,12 +86,78 @@ class SendResult:
 
 class SpurLineClient:
     """
-    Stateless HTTP client.  Instantiate, call ``send()``, discard.
+    Stateless HTTP client.  Instantiate, call methods, discard.
     """
 
-    _ENDPOINT_PATH = "/api/file/upload"
-    _CONTENT_TYPE  = "application/octet-stream"
+    _CONNECT_PATH    = "/api/connect"
+    _UPLOAD_PATH     = "/api/file/upload"
+    _CONTENT_TYPE    = "application/octet-stream"
     _TIMEOUT_SECONDS = 10
+    _CONNECT_TIMEOUT = 35   # 30 s server consent dialog + 5 s buffer
+
+    # ------------------------------------------------------------------
+    # Connect (obtain shared secret)
+    # ------------------------------------------------------------------
+
+    def connect(self, base_url: str) -> ConnectResult:
+        """
+        Request a shared secret via ``POST /api/connect``.
+
+        The server shows a consent dialog to the user with the
+        application name.  If approved the secret is returned;
+        if declined or timed out the server responds with 403.
+
+        Previously approved applications receive their existing
+        secret without re-prompting.
+        """
+        url  = f"{base_url}{self._CONNECT_PATH}"
+        body = json.dumps({"application_name": APPLICATION_NAME}).encode()
+
+        ssl_ctx = self._make_ssl_context()
+
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(
+                req,
+                timeout=self._CONNECT_TIMEOUT,
+                context=ssl_ctx,
+            ) as resp:
+                data = json.loads(resp.read())
+                secret = data.get("secret", "")
+                if not secret:
+                    return ConnectResult(
+                        error_message="Server approved but returned no secret.",
+                    )
+                return ConnectResult(success=True, secret=secret)
+
+        except urllib.error.HTTPError as exc:
+            if exc.code == 403:
+                return ConnectResult(
+                    error_message=(
+                        "Connection declined or timed out.\n"
+                        "Please approve the connection in LightBurn / MillMage "
+                        "when prompted."
+                    ),
+                )
+            return ConnectResult(
+                error_message=f"Server returned HTTP {exc.code}: {exc.reason}",
+            )
+        except urllib.error.URLError as exc:
+            return ConnectResult(
+                error_message=self._describe_url_error(exc),
+            )
+        except Exception as exc:
+            return ConnectResult(error_message=f"Unexpected error: {exc}")
+
+    # ------------------------------------------------------------------
+    # File upload
+    # ------------------------------------------------------------------
 
     def send(
         self,
@@ -79,7 +166,7 @@ class SpurLineClient:
         fmt: str = "dxf",
     ) -> SendResult:
         """
-        POST ``file_bytes`` to the endpoint described by ``endpoint``.
+        POST ``file_bytes`` to the endpoint's file-upload URL.
 
         Parameters
         ----------
@@ -88,8 +175,7 @@ class SpurLineClient:
         file_bytes : bytes
             Raw DXF or SVG content to POST.
         fmt : str
-            ``'dxf'`` or ``'svg'`` — used to set the filename hint in
-            the request (exact mechanism TBD from OpenAPI spec).
+            ``'dxf'`` or ``'svg'`` — sets the ``X-Filename`` hint.
 
         Returns
         -------
@@ -102,14 +188,17 @@ class SpurLineClient:
                 error_message="No endpoint configured for this target.",
             )
 
-        url = f"{endpoint.url}{self._ENDPOINT_PATH}"
+        url = f"{endpoint.url}{self._UPLOAD_PATH}"
 
         try:
             result = self._do_post(url, endpoint.token, file_bytes, fmt)
         except urllib.error.HTTPError as exc:
             return self._handle_http_error(exc)
         except urllib.error.URLError as exc:
-            return self._handle_url_error(exc)
+            return SendResult(
+                success=False,
+                error_message=self._describe_url_error(exc),
+            )
         except Exception as exc:
             return SendResult(
                 success=False,
@@ -123,12 +212,20 @@ class SpurLineClient:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _make_ssl_context() -> ssl.SSLContext:
+        """Self-signed certs are typical on a LAN."""
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode    = ssl.CERT_NONE
+        return ctx
+
+    @staticmethod
     def _compute_bearer_token(secret: str) -> str:
         """
         Compute the HMAC-SHA256 time-based Bearer token.
 
-        The server accepts tokens for the current minute and the previous
-        minute to handle clock drift.
+        The server accepts tokens for the current minute and the
+        previous minute to handle clock drift.
         """
         message = str(int(time.time()) // 60).encode()
         return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
@@ -141,11 +238,8 @@ class SpurLineClient:
         fmt: str,
     ) -> SendResult:
         """Perform the actual HTTP POST and return a SendResult."""
-        ssl_ctx = ssl.create_default_context()
-        ssl_ctx.check_hostname = False
-        ssl_ctx.verify_mode    = ssl.CERT_NONE
-
-        bearer = self._compute_bearer_token(secret)
+        ssl_ctx = self._make_ssl_context()
+        bearer  = self._compute_bearer_token(secret)
 
         headers = {
             "Authorization": f"Bearer {bearer}",
@@ -186,7 +280,7 @@ class SpurLineClient:
                 http_status=status,
                 error_message=(
                     f"Authentication failed (HTTP {status}).  "
-                    "Please check your shared secret."
+                    "The shared secret may be invalid or revoked."
                 ),
             )
         return SendResult(
@@ -196,25 +290,23 @@ class SpurLineClient:
         )
 
     @staticmethod
-    def _handle_url_error(exc: urllib.error.URLError) -> SendResult:
+    def _describe_url_error(exc: urllib.error.URLError) -> str:
         """Map connection/timeout errors to a user-friendly message."""
         reason = str(exc.reason)
         if "timed out" in reason.lower():
-            msg = (
+            return (
                 "Connection timed out.  "
                 "Make sure the REST listener is enabled in LightBurn / MillMage "
                 "and that the host and port are correct."
             )
-        elif "refused" in reason.lower():
-            msg = (
+        if "refused" in reason.lower():
+            return (
                 "Connection refused.  "
                 "The REST listener does not appear to be running.  "
                 "Enable it in LightBurn / MillMage settings."
             )
-        else:
-            msg = (
-                f"Could not connect: {reason}\n"
-                "Check that the host IP and port are correct and that "
-                "the REST listener is enabled."
-            )
-        return SendResult(success=False, error_message=msg)
+        return (
+            f"Could not connect: {reason}\n"
+            "Check that the host IP and port are correct and that "
+            "the REST listener is enabled."
+        )

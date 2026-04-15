@@ -2,7 +2,8 @@
 SpurLine — SettingsDialog
 
 Dialog for configuring LightBurn and MillMage endpoint URLs.
-Format:  https://<host>:<port>?secret=<secret>
+The shared secret is obtained automatically via /api/connect
+when a send is attempted.
 """
 
 try:
@@ -12,7 +13,7 @@ except ImportError:
 
 
 class SettingsDialog(QtWidgets.QDialog):
-    """Modal dialog for editing both endpoint connection strings."""
+    """Modal dialog for editing both endpoint URLs."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -26,9 +27,9 @@ class SettingsDialog(QtWidgets.QDialog):
         layout.setSpacing(10)
 
         info = QtWidgets.QLabel(
-            "Paste the endpoint URL for each target.\n"
-            "This is the URL from the QR code shown in the app.\n"
-            "Example: https://192.168.1.50:8080?secret=YOUR_SECRET"
+            "Enter the server URL for each target.\n"
+            "SpurLine will request access automatically when you send.\n"
+            "Example: https://localhost:8080"
         )
         info.setWordWrap(True)
         layout.addWidget(info)
@@ -37,7 +38,7 @@ class SettingsDialog(QtWidgets.QDialog):
         lb_group = QtWidgets.QGroupBox("LightBurn")
         lb_layout = QtWidgets.QVBoxLayout(lb_group)
         self.w_lightburn = QtWidgets.QLineEdit()
-        self.w_lightburn.setPlaceholderText("https://172.16.0.100:8080?secret=...")
+        self.w_lightburn.setPlaceholderText("https://localhost:8080")
         lb_layout.addWidget(self.w_lightburn)
         layout.addWidget(lb_group)
 
@@ -45,7 +46,7 @@ class SettingsDialog(QtWidgets.QDialog):
         mm_group = QtWidgets.QGroupBox("MillMage")
         mm_layout = QtWidgets.QVBoxLayout(mm_group)
         self.w_millmage = QtWidgets.QLineEdit()
-        self.w_millmage.setPlaceholderText("https://172.16.0.100:8080?secret=...")
+        self.w_millmage.setPlaceholderText("https://localhost:8080")
         mm_layout.addWidget(self.w_millmage)
         layout.addWidget(mm_group)
 
@@ -100,6 +101,4 @@ class SettingsDialog(QtWidgets.QDialog):
         """Return an error string if malformed, else ''."""
         if not raw.startswith("https://"):
             return "Must start with https://"
-        if "?secret=" not in raw and "&secret=" not in raw:
-            return "Missing ?secret= parameter.  Paste the full URL from the QR code."
         return ""

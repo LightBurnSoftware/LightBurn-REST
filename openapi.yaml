@@ -9,16 +9,29 @@ info:
 
     ## Authentication
 
-    All endpoints except `POST /api/bind` and `GET /` require a Bearer token
-    derived from a shared secret using HMAC-SHA256:
+    All endpoints except `POST /api/bind`, `POST /api/connect`, and `GET /`
+    require a Bearer token derived from a shared secret using HMAC-SHA256:
 
     ```
     token = hex(HMAC-SHA256(secret, floor(unix_time / 60)))
     ```
 
     The server accepts tokens for the current minute and the previous minute
-    to handle clock drift. The shared secret is obtained by scanning the QR
-    code displayed in the application after calling `POST /api/bind`.
+    to handle clock drift.
+
+    ## Obtaining a Secret
+
+    There are two ways to obtain a shared secret:
+
+    - **LAN pairing (`POST /api/bind`)**: For remote devices (e.g. pendants).
+      Triggers a QR code in the application containing the server URL and secret.
+      Disabled when the server is in local-only mode.
+    - **Local application pairing (`POST /api/connect`)**: For localhost
+      applications only. Sends an `application_name` in the request body. The
+      application user is shown a consent dialog; if approved, the secret is
+      returned in the response. Previously approved applications receive their
+      existing secret without re-prompting. The dialog has a 30-second timeout
+      after which the connection is automatically declined.
 
     ## Command Queuing
 
@@ -161,11 +174,13 @@ paths:
 
   /api/bind:
     post:
-      summary: Request pairing QR code
+      summary: Request LAN pairing QR code
       description: |
         Triggers the application to display a QR code containing the server URL
         and shared secret. No authentication required. If a secret already exists
         it is reused; calling bind again re-displays the same QR code.
+
+        Returns 403 Forbidden when the server is running in local-only mode.
       security: []
       responses:
         '200':
@@ -174,6 +189,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OkResponse'
+        '403':
+          description: LAN-accessible API is disabled in local-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/connect:
+    post:
+      summary: Request localhost application pairing
+      description: |
+        Allows a local application to request a shared secret for API access.
+        Only accepts connections from localhost (127.0.0.1 / ::1). The user is
+        shown a consent dialog with the application name; if they approve, a
+        new shared secret is generated and returned. If they decline (or the
+        30-second timeout expires), the request is rejected with 403.
+
+        Previously approved applications are remembered across sessions and
+        receive their existing secret without re-prompting.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [application_name]
+              properties:
+                application_name:
+                  type: string
+                  description: Display name shown to the user in the consent dialog
+                  example: My Automation Tool
+      responses:
+        '200':
+          description: Connection approved, secret returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  secret:
+                    type: string
+                    description: Shared secret for deriving Bearer tokens
+                    example: aB3dE7fG9hJ1kL5m
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: Connection rejected by user, timed out, or not from localhost
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/status:
     get:

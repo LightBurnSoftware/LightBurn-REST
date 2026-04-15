@@ -2,8 +2,8 @@
 <package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
   <name>SpurLine</name>
   <description>Generate 2D gear profiles (involute, rack, timing) and send them directly to LightBurn or MillMage via REST API.</description>
-  <version>0.1.0</version>
-  <date>2025-01-01</date>
+  <version>0.2.0</version>
+  <date>2026-04-16</date>
   <maintainer email="">SpurLine Contributors</maintainer>
   <license>MIT</license>
   <url type="repository">https://github.com/your-username/spurline</url>

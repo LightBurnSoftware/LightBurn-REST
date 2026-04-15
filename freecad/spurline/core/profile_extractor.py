@@ -97,10 +97,6 @@ class ProfileExtractor:
 
         gear_type = params["gear_type"]
 
-        # TODO: verify property names against installed freecad.gears version.
-        # On newer builds the property is num_teeth; on some older builds it
-        # is teeth.  Check with: print(dir(gear_obj)) in the FC console.
-
         if gear_type == "involute":
             obj = gc.CreateInvoluteGear.create()
             obj.num_teeth    = params["teeth"]
@@ -118,7 +114,7 @@ class ProfileExtractor:
         elif gear_type == "timing":
             obj = gc.CreateTimingGear.create()
             obj.num_teeth = params["teeth"]
-            obj.belt_type = params.get("belt_type", "GT2")
+            obj.type      = params.get("belt_type", "gt2")
             obj.height    = 1.0
 
         else:

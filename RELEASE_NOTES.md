@@ -1,43 +1,38 @@
-# SpurLine v0.1.0 — Initial Release
+# SpurLine v0.2.0
 
-FreeCAD workbench for generating 2D gear profiles and sending them directly to LightBurn or MillMage via their REST API.
+## New: Extract profiles from existing gears
 
-## Features
+Select one or more gear objects already in your FreeCAD document — from the
+FCGear workbench, imported STEP files, or any Part with a 3D shape — and
+extract 2D cutting profiles directly.
 
-### Gear Profile Generation
-- **Involute spur gears** — configurable teeth, module, and pressure angle
-- **Involute racks** — configurable teeth, module, and pressure angle
-- **Timing belt pulleys** — supports GT2, GT3, T2.5, T5, T10, MXL, XL profiles
-- **Center bore** with optional DIN 6885 keyway slot
-- **Multi-copy layout** — arrange up to 50 copies in an automatic grid
+- **Extract Profile from Selection** toolbar button and menu entry
+- Per-object copy count and optional bore/keyway override
+- Multi-face sheet layout (each gear type on its own row)
+- Handles gears at arbitrary positions: slices at the shape's Z midpoint
+  and re-centers the profile at the origin
+- Preserves internal features (bore holes, offset holes) from the 3D model
+- Preview objects are automatically removed when the panel is closed
 
-### FreeCAD Integration
-- Installs as a standard FreeCAD workbench (Mod directory symlink or copy)
-- Compatible with FreeCAD 1.1
-- Requires the [fcgears](https://github.com/looooo/freecad.gears) addon
-- Live preview in the 3D viewport — re-preview replaces the previous result
-- Task panel UI with parameter fields, live pitch diameter readout, and send buttons
+## Automatic connection pairing
 
-### REST API Client
-- Sends DXF files to LightBurn or MillMage over HTTPS
-- **HMAC-SHA256 time-based authentication** — computes a Bearer token from the shared secret each minute; the secret is never sent over the wire
-- Endpoint URL format: `https://host:port?secret=VALUE` (paste directly from the QR code shown in LightBurn/MillMage)
-- Handles HTTP 202 async acceptance, 401/403 auth errors, connection timeouts, and refused connections with user-friendly messages
-- Self-signed TLS certificates accepted (typical for LAN use)
+SpurLine now identifies itself as `"FreeCAD (SpurLine)"` and requests
+access via `POST /api/connect` on the local REST API.  No manual URL or
+secret entry is needed — a consent dialog appears in LightBurn / MillMage
+on first use, and approved connections are remembered across sessions.
 
-### Settings
-- **SpurLine > Settings** menu entry for configuring LightBurn and MillMage connection URLs
-- Endpoint strings persist across FreeCAD sessions via the built-in preference store
-- Auth error during send automatically prompts for endpoint re-entry
+- Shared secrets are obtained and stored transparently
+- Stale secrets are automatically refreshed on auth failure
+- **SpurLine > Reset authorizations** menu entry to clear stored secrets
 
-## Installation
+## Bug fixes and improvements
 
-1. Clone or copy this repository
-2. Create a directory junction (Windows) or symlink (Linux/macOS) in your FreeCAD Mod directory:
-   - **FreeCAD 1.1 on Windows:** `%APPDATA%\FreeCAD\v1-1\Mod\SpurLine`
-   - **FreeCAD 1.0 on Windows:** `%APPDATA%\FreeCAD\Mod\SpurLine`
-3. Install the fcgears addon via FreeCAD's Addon Manager if not already present
-4. Restart FreeCAD and select the SpurLine workbench from the dropdown
+- Fixed timing gear creation: property is `type` (not `belt_type`), values
+  are lowercase (`gt2`, `gt3`, `gt5`, `gt8`, `htd3`, `htd5`, `htd8`)
+- Profile extraction uses `Shape.slice()` instead of boolean `section()`
+  with a helper plane — significantly faster for complex shapes
+- Holes are composited via `Part::FaceMakerBullseye` in a single pass,
+  with a boolean-cut fallback
 
 ## Dependencies
 

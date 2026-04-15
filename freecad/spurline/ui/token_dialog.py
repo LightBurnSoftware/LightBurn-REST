@@ -1,15 +1,11 @@
 """
 SpurLine — TokenDialog
 
-Shown when a REST call returns an auth error, or when the user
-wants to configure their endpoint string from scratch.
+Shown when a REST call fails and the user needs to configure or
+correct the endpoint URL for a specific target.
 
-The endpoint string format is:  https://<host>:<port>?secret=<secret>
-e.g.  https://192.168.1.50:8080?secret=YOUR_SECRET
-
-The URL is obtained by scanning the QR code displayed in LightBurn
-or MillMage after enabling the REST listener.  We store the full raw
-string in preferences and parse it at send time.
+The shared secret is obtained automatically via /api/connect;
+the user only needs to provide the server URL.
 """
 
 try:
@@ -20,7 +16,7 @@ except ImportError:
 
 class TokenDialog(QtWidgets.QDialog):
     """
-    Modal dialog for entering or correcting the endpoint configuration
+    Modal dialog for entering or correcting the endpoint URL
     for a specific target (lightburn or millmage).
 
     Parameters
@@ -49,16 +45,16 @@ class TokenDialog(QtWidgets.QDialog):
 
         # Explanation label
         info = QtWidgets.QLabel(
-            f"Enter the endpoint URL for {self.target.title()}.\n"
-            "Paste the URL from the QR code shown in the app.\n"
-            "Example: https://192.168.1.50:8080?secret=YOUR_SECRET"
+            f"Enter the server URL for {self.target.title()}.\n"
+            "SpurLine will request access automatically when you send.\n"
+            "Example: https://localhost:8080"
         )
         info.setWordWrap(True)
         layout.addWidget(info)
 
         # Endpoint input
         self.w_endpoint = QtWidgets.QLineEdit()
-        self.w_endpoint.setPlaceholderText("https://172.16.0.100:8080?secret=...")
+        self.w_endpoint.setPlaceholderText("https://localhost:8080")
         layout.addWidget(self.w_endpoint)
 
         # Validation feedback label (shown in red when format is wrong)
@@ -103,12 +99,10 @@ class TokenDialog(QtWidgets.QDialog):
         """
         Return an error string if the endpoint is malformed, else ''.
 
-        Expected format: https://<host>:<port>?secret=<value>
+        Expected format: https://<host>[:<port>]
         """
         if not raw:
-            return "Endpoint string cannot be empty."
+            return "Endpoint URL cannot be empty."
         if not raw.startswith("https://"):
             return "Endpoint must start with https://"
-        if "?secret=" not in raw and "&secret=" not in raw:
-            return "Missing ?secret= parameter.  Paste the full URL from the QR code."
         return ""

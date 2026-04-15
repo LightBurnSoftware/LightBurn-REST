@@ -39,7 +39,7 @@ class GearPanel:
     """
 
     # Belt profile choices shown when gear_type == 'timing'
-    BELT_TYPES = ["GT2", "GT3", "T2.5", "T5", "T10", "MXL", "XL"]
+    BELT_TYPES = ["gt2", "gt3", "gt5", "gt8", "htd3", "htd5", "htd8"]
 
     def __init__(self, gear_type: str):
         self.gear_type = gear_type
@@ -270,8 +270,9 @@ class GearPanel:
 
         1. Extract profile (reuse cached face if available)
         2. Export to DXF bytes in memory
-        3. POST to the configured endpoint
-        4. Show success or error dialog
+        3. Ensure we have a shared secret (auto-connect if needed)
+        4. POST to the configured endpoint
+        5. On auth error, reconnect and retry once
         """
         from freecad.spurline.core.profile_extractor import ProfileExtractor
         from freecad.spurline.core.sheet_composer    import SheetComposer
@@ -296,22 +297,58 @@ class GearPanel:
             self._show_error("Export failed", str(exc))
             return
 
-        # --- Step 3: send ---
-        prefs     = SpurLinePrefs()
-        endpoint  = prefs.get_endpoint(target)   # returns parsed EndpointConfig
-        client    = SpurLineClient()
+        # --- Step 3: ensure connected ---
+        prefs  = SpurLinePrefs()
+        client = SpurLineClient()
 
+        endpoint = self._ensure_connected(target, prefs, client)
+        if endpoint is None:
+            return
+
+        # --- Step 4: send ---
         result = client.send(endpoint, dxf_bytes, fmt="dxf")
 
         if result.success:
             self.lbl_info.setText(f"File accepted by {target.title()} (importing...)")
         elif result.is_auth_error:
-            self._prompt_token(target)
+            # Secret may be stale — reconnect and retry once
+            prefs.set_secret(target, "")
+            endpoint = self._ensure_connected(target, prefs, client)
+            if endpoint is None:
+                return
+            retry = client.send(endpoint, dxf_bytes, fmt="dxf")
+            if retry.success:
+                self.lbl_info.setText(f"File accepted by {target.title()} (importing...)")
+            else:
+                self._show_error(f"Could not reach {target.title()}", retry.error_message)
         else:
             self._show_error(
                 f"Could not reach {target.title()}",
                 result.error_message,
             )
+
+    # ------------------------------------------------------------------
+    # Connection helpers
+    # ------------------------------------------------------------------
+
+    def _ensure_connected(self, target, prefs, client):
+        """
+        Return an ``EndpointConfig`` with a valid secret, or ``None``
+        if the connection could not be established.
+        """
+        endpoint = prefs.get_endpoint(target)
+
+        if not endpoint.token:
+            self.lbl_info.setText(f"Requesting access from {target.title()}...")
+            self.form.repaint()  # show the status before blocking call
+            result = client.connect(endpoint.url)
+            if result.success:
+                prefs.set_secret(target, result.secret)
+                return prefs.get_endpoint(target)
+            self._show_error("Connection failed", result.error_message)
+            return None
+
+        return endpoint
 
     # ------------------------------------------------------------------
     # Dialog helpers
@@ -320,18 +357,6 @@ class GearPanel:
     def _show_error(self, title: str, message: str):
         """Show a modal error dialog."""
         QtWidgets.QMessageBox.critical(self.form, f"SpurLine — {title}", message)
-
-    def _prompt_token(self, target: str):
-        """
-        Show a dialog asking the user to enter (or correct) their
-        endpoint string for the given target.  On confirmation, save
-        to preferences and retry the send.
-        """
-        from freecad.spurline.ui.token_dialog import TokenDialog
-        dlg = TokenDialog(target=target, parent=self.form)
-        if dlg.exec_() == QtWidgets.QDialog.Accepted:
-            # Preferences were updated inside the dialog — retry
-            self._send(target)
 
     # ------------------------------------------------------------------
     # FreeCAD task panel protocol

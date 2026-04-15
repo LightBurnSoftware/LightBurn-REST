@@ -31,6 +31,7 @@ class SpurLineWorkbench(FreeCADGui.Workbench):
             cmd_involute,
             cmd_rack,
             cmd_timing,
+            cmd_extract,
             cmd_settings,
         )
 
@@ -38,6 +39,7 @@ class SpurLineWorkbench(FreeCADGui.Workbench):
             "SpurLine_Involute",
             "SpurLine_Rack",
             "SpurLine_Timing",
+            "SpurLine_Extract",
         ]
 
         self.appendToolbar("SpurLine", self._commands)
