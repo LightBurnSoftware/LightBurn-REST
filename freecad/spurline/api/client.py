@@ -242,9 +242,10 @@ class SpurLineClient:
         bearer  = self._compute_bearer_token(secret)
 
         headers = {
-            "Authorization": f"Bearer {bearer}",
-            "Content-Type":  self._CONTENT_TYPE,
-            "X-Filename":    f"gear.{fmt}",
+            "Authorization":  f"Bearer {bearer}",
+            "Content-Type":   self._CONTENT_TYPE,
+            "X-Filename":     f"gear.{fmt}",
+            "X-Group-Shapes": "true",
         }
 
         req = urllib.request.Request(

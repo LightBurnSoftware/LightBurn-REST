@@ -280,52 +280,59 @@ class GearPanel:
         from freecad.spurline.prefs.preferences      import SpurLinePrefs
 
         params = self._collect_params()
+        bar = FreeCAD.Base.ProgressIndicator()
+        bar.start(f"Sending to {target.title()}...", 0)
 
-        # --- Step 1: ensure we have a face ---
-        if self._last_face is None:
+        try:
+            # --- Step 1: ensure we have a face ---
+            if self._last_face is None:
+                self.lbl_info.setText("Generating profile...")
+                self.form.repaint()
+                try:
+                    self._last_face = ProfileExtractor().extract(params)
+                except Exception as exc:
+                    self._show_error("Profile generation failed", str(exc))
+                    return
+
+            # --- Step 2: export to bytes ---
+            self.lbl_info.setText("Exporting DXF...")
+            self.form.repaint()
             try:
-                self._last_face = ProfileExtractor().extract(params)
+                composer  = SheetComposer()
+                dxf_bytes = composer.to_dxf_bytes(self._last_face, params["copies"])
             except Exception as exc:
-                self._show_error("Profile generation failed", str(exc))
+                self._show_error("Export failed", str(exc))
                 return
 
-        # --- Step 2: export to bytes ---
-        try:
-            composer  = SheetComposer()
-            dxf_bytes = composer.to_dxf_bytes(self._last_face, params["copies"])
-        except Exception as exc:
-            self._show_error("Export failed", str(exc))
-            return
+            # --- Step 3: ensure connected ---
+            prefs  = SpurLinePrefs()
+            client = SpurLineClient()
 
-        # --- Step 3: ensure connected ---
-        prefs  = SpurLinePrefs()
-        client = SpurLineClient()
-
-        endpoint = self._ensure_connected(target, prefs, client)
-        if endpoint is None:
-            return
-
-        # --- Step 4: send ---
-        result = client.send(endpoint, dxf_bytes, fmt="dxf")
-
-        if result.success:
-            self.lbl_info.setText(f"File accepted by {target.title()} (importing...)")
-        elif result.is_auth_error:
-            # Secret may be stale — reconnect and retry once
-            prefs.set_secret(target, "")
             endpoint = self._ensure_connected(target, prefs, client)
             if endpoint is None:
                 return
-            retry = client.send(endpoint, dxf_bytes, fmt="dxf")
-            if retry.success:
+
+            # --- Step 4: send ---
+            self.lbl_info.setText(f"Uploading to {target.title()}...")
+            self.form.repaint()
+            result = client.send(endpoint, dxf_bytes, fmt="dxf")
+
+            if result.success:
                 self.lbl_info.setText(f"File accepted by {target.title()} (importing...)")
+            elif result.is_auth_error:
+                self._show_error(
+                    "Authentication failed",
+                    f"The stored secret was rejected by {target.title()}.\n\n"
+                    "Use SpurLine > Reset authorizations from the menu,\n"
+                    "then try sending again.",
+                )
             else:
-                self._show_error(f"Could not reach {target.title()}", retry.error_message)
-        else:
-            self._show_error(
-                f"Could not reach {target.title()}",
-                result.error_message,
-            )
+                self._show_error(
+                    f"Could not reach {target.title()}",
+                    result.error_message,
+                )
+        finally:
+            bar.stop()
 
     # ------------------------------------------------------------------
     # Connection helpers

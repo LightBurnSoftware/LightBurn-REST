@@ -83,7 +83,7 @@ class SpurLinePrefs:
     def clear_all_secrets(self):
         """Remove all stored secrets (re-authorization will be required)."""
         for key in self._SECRET_KEYS.values():
-            self._params.RemString(key)
+            self._params.SetString(key, "")
 
     # ------------------------------------------------------------------
     # Private helpers

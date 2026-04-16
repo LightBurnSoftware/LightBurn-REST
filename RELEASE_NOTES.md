@@ -1,4 +1,4 @@
-# SpurLine v0.2.0
+# SpurLine v0.3.0
 
 ## New: Extract profiles from existing gears
 
@@ -16,23 +16,40 @@ extract 2D cutting profiles directly.
 
 ## Automatic connection pairing
 
-SpurLine now identifies itself as `"FreeCAD (SpurLine)"` and requests
-access via `POST /api/connect` on the local REST API.  No manual URL or
-secret entry is needed — a consent dialog appears in LightBurn / MillMage
-on first use, and approved connections are remembered across sessions.
+SpurLine identifies itself as `"FreeCAD (SpurLine)"` and requests access
+via `POST /api/connect` on the local REST API.  A consent dialog appears in
+LightBurn / MillMage each time a new secret is needed; the secret is stored
+in FreeCAD preferences for reuse across sessions.
 
-- Shared secrets are obtained and stored transparently
-- Stale secrets are automatically refreshed on auth failure
-- **SpurLine > Reset authorizations** menu entry to clear stored secrets
+- **SpurLine > Reset authorizations** clears stored secrets so the next
+  send triggers a fresh consent prompt
+- Auth errors are reported with guidance to reset and re-authorize
+  (no automatic silent reconnect — each connect shows a consent dialog)
 
-## Bug fixes and improvements
+## Grouped shape import
 
-- Fixed timing gear creation: property is `type` (not `belt_type`), values
-  are lowercase (`gt2`, `gt3`, `gt5`, `gt8`, `htd3`, `htd5`, `htd8`)
+Uploaded profiles are now sent with `X-Group-Shapes: true`, so all shapes
+in a multi-copy layout arrive as a single group in LightBurn / MillMage.
+
+## Progress feedback
+
+The send pipeline now shows step-by-step status in the panel label
+("Generating profile..." → "Exporting DXF..." → "Uploading to LightBurn...")
+and displays FreeCAD's progress indicator in the status bar.
+
+## Bug fixes
+
+- Fixed timing gear creation: FCGear property is `type` (not `belt_type`),
+  values are lowercase (`gt2`, `gt3`, `gt5`, `gt8`, `htd3`, `htd5`, `htd8`)
+- Fixed gear profile corruption when an active PartDesign body exists —
+  temporary gears are now created as standalone Part::FeaturePython objects,
+  never added to the active body
 - Profile extraction uses `Shape.slice()` instead of boolean `section()`
   with a helper plane — significantly faster for complex shapes
 - Holes are composited via `Part::FaceMakerBullseye` in a single pass,
   with a boolean-cut fallback
+- Fixed `clear_all_secrets` using `SetString("")` instead of `RemString`
+  for reliable in-session clearing
 
 ## Dependencies
 

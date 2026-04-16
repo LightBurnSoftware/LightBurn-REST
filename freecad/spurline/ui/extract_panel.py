@@ -239,61 +239,69 @@ class ExtractPanel:
         from freecad.spurline.api.client import SpurLineClient
         from freecad.spurline.prefs.preferences import SpurLinePrefs
 
-        # --- Step 1: ensure we have extracted faces ---
-        if self._last_items is None:
-            items = self._collect_items()
-            if not items:
-                self._show_error("Nothing to send", "No objects are selected.")
-                return
+        bar = FreeCAD.Base.ProgressIndicator()
+        bar.start(f"Sending to {target.title()}...", 0)
 
-            bore, keyway_w = self._get_overrides()
-            extractor = SelectionExtractor()
-            try:
-                self._last_items = [
-                    (extractor.extract_face(obj, bore=bore, keyway_w=keyway_w), copies)
-                    for obj, copies in items
-                ]
-            except Exception as exc:
-                self._show_error("Profile extraction failed", str(exc))
-                return
-
-        # --- Step 2: export to DXF bytes ---
         try:
-            composer = SheetComposer()
-            dxf_bytes = composer.multi_to_dxf_bytes(self._last_items)
-        except Exception as exc:
-            self._show_error("Export failed", str(exc))
-            return
+            # --- Step 1: ensure we have extracted faces ---
+            if self._last_items is None:
+                items = self._collect_items()
+                if not items:
+                    self._show_error("Nothing to send", "No objects are selected.")
+                    return
 
-        # --- Step 3: ensure connected ---
-        prefs  = SpurLinePrefs()
-        client = SpurLineClient()
+                self.lbl_info.setText("Extracting profiles...")
+                self.form.repaint()
+                bore, keyway_w = self._get_overrides()
+                extractor = SelectionExtractor()
+                try:
+                    self._last_items = [
+                        (extractor.extract_face(obj, bore=bore, keyway_w=keyway_w), copies)
+                        for obj, copies in items
+                    ]
+                except Exception as exc:
+                    self._show_error("Profile extraction failed", str(exc))
+                    return
 
-        endpoint = self._ensure_connected(target, prefs, client)
-        if endpoint is None:
-            return
+            # --- Step 2: export to DXF bytes ---
+            self.lbl_info.setText("Exporting DXF...")
+            self.form.repaint()
+            try:
+                composer = SheetComposer()
+                dxf_bytes = composer.multi_to_dxf_bytes(self._last_items)
+            except Exception as exc:
+                self._show_error("Export failed", str(exc))
+                return
 
-        # --- Step 4: send ---
-        result = client.send(endpoint, dxf_bytes, fmt="dxf")
+            # --- Step 3: ensure connected ---
+            prefs  = SpurLinePrefs()
+            client = SpurLineClient()
 
-        if result.success:
-            self.lbl_info.setText(f"File accepted by {target.title()} (importing...)")
-        elif result.is_auth_error:
-            # Secret may be stale — reconnect and retry once
-            prefs.set_secret(target, "")
             endpoint = self._ensure_connected(target, prefs, client)
             if endpoint is None:
                 return
-            retry = client.send(endpoint, dxf_bytes, fmt="dxf")
-            if retry.success:
+
+            # --- Step 4: send ---
+            self.lbl_info.setText(f"Uploading to {target.title()}...")
+            self.form.repaint()
+            result = client.send(endpoint, dxf_bytes, fmt="dxf")
+
+            if result.success:
                 self.lbl_info.setText(f"File accepted by {target.title()} (importing...)")
+            elif result.is_auth_error:
+                self._show_error(
+                    "Authentication failed",
+                    f"The stored secret was rejected by {target.title()}.\n\n"
+                    "Use SpurLine > Reset authorizations from the menu,\n"
+                    "then try sending again.",
+                )
             else:
-                self._show_error(f"Could not reach {target.title()}", retry.error_message)
-        else:
-            self._show_error(
-                f"Could not reach {target.title()}",
-                result.error_message,
-            )
+                self._show_error(
+                    f"Could not reach {target.title()}",
+                    result.error_message,
+                )
+        finally:
+            bar.stop()
 
     # ------------------------------------------------------------------
     # Connection helpers

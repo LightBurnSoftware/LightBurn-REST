@@ -91,33 +91,42 @@ class ProfileExtractor:
         """
         Instantiate the appropriate freecad.gears object and set params.
 
-        Returns the document object (before recompute).
+        Creates the gear as a standalone Part::FeaturePython so it is
+        never added to an active PartDesign body (which would fuse it
+        with existing geometry and corrupt the slice).
+
+        Returns the document object (after recompute).
         """
-        import freecad.gears.commands as gc
+        from freecad.gears.involutegear import InvoluteGear
+        from freecad.gears.involutegearrack import InvoluteGearRack
+        from freecad.gears.timinggear import TimingGear
 
         gear_type = params["gear_type"]
 
+        obj = doc.addObject("Part::FeaturePython", "_SpurLine_tmp_gear")
+
         if gear_type == "involute":
-            obj = gc.CreateInvoluteGear.create()
-            obj.num_teeth    = params["teeth"]
-            obj.module       = params["module"]
+            InvoluteGear(obj)
+            obj.num_teeth      = params["teeth"]
+            obj.module         = params["module"]
             obj.pressure_angle = params["pressure"]
-            obj.height       = 1.0   # minimal height — we only need one face
+            obj.height         = 1.0   # minimal height — we only need one face
 
         elif gear_type == "rack":
-            obj = gc.CreateInvoluteRack.create()
-            obj.num_teeth = params["teeth"]
-            obj.module    = params["module"]
+            InvoluteGearRack(obj)
+            obj.num_teeth      = params["teeth"]
+            obj.module         = params["module"]
             obj.pressure_angle = params["pressure"]
-            obj.height    = 1.0
+            obj.height         = 1.0
 
         elif gear_type == "timing":
-            obj = gc.CreateTimingGear.create()
+            TimingGear(obj)
             obj.num_teeth = params["teeth"]
             obj.type      = params.get("belt_type", "gt2")
             obj.height    = 1.0
 
         else:
+            doc.removeObject(obj.Name)
             raise ValueError(f"Unknown gear type: {gear_type!r}")
 
         doc.recompute()

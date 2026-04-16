@@ -40,11 +40,13 @@ Then restart FreeCAD and select **SpurLine** from the workbench dropdown.
 No manual configuration is required.  When you click **Send to LightBurn**
 or **Send to MillMage** for the first time, SpurLine identifies itself as
 `"FreeCAD (SpurLine)"` and requests access via the local REST API.  A
-consent dialog appears in LightBurn / MillMage — approve it once and the
-connection is remembered across sessions.
+consent dialog appears in LightBurn / MillMage — approve it and the
+shared secret is stored in FreeCAD's preferences for future sends.
 
-If you need to re-authorize (e.g. after revoking access), use
-**SpurLine > Reset authorizations** from the menu.
+Each call to `/api/connect` produces a new consent prompt and a distinct
+secret.  If your stored secret becomes invalid (e.g. the server was
+reinstalled), use **SpurLine > Reset authorizations** from the menu to
+clear it, then click Send again to re-authorize.
 
 ## Project structure
 

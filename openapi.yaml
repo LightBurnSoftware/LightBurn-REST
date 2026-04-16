@@ -28,10 +28,11 @@ info:
       Disabled when the server is in local-only mode.
     - **Local application pairing (`POST /api/connect`)**: For localhost
       applications only. Sends an `application_name` in the request body. The
-      application user is shown a consent dialog; if approved, the secret is
-      returned in the response. Previously approved applications receive their
-      existing secret without re-prompting. The dialog has a 30-second timeout
-      after which the connection is automatically declined.
+      application user is shown a consent dialog every time; if approved, a new
+      secret is generated and returned. The dialog has a 30-second timeout
+      after which the connection is automatically declined. Applications are
+      responsible for persisting their own secret. Each call produces a
+      distinct secret, even for the same `application_name`.
 
     ## Command Queuing
 
@@ -202,12 +203,11 @@ paths:
       description: |
         Allows a local application to request a shared secret for API access.
         Only accepts connections from localhost (127.0.0.1 / ::1). The user is
-        shown a consent dialog with the application name; if they approve, a
-        new shared secret is generated and returned. If they decline (or the
-        30-second timeout expires), the request is rejected with 403.
-
-        Previously approved applications are remembered across sessions and
-        receive their existing secret without re-prompting.
+        shown a consent dialog with the application name every time this
+        endpoint is called. If they approve, a new shared secret is generated
+        and returned. If they decline (or the 30-second timeout expires), the
+        request is rejected with 403. Each approval produces a distinct secret;
+        applications are responsible for persisting their own secret.
       security: []
       requestBody:
         required: true
@@ -763,6 +763,15 @@ paths:
             type: string
             default: upload.lbrn2
           description: Filename for the uploaded file
+        - name: X-Group-Shapes
+          in: header
+          schema:
+            type: string
+            enum: ["true", "false"]
+            default: "false"
+          description: |
+            When "true", imported shapes are kept as a group. When "false"
+            (default), the application's global grouping preference applies.
       requestBody:
         required: true
         content:
