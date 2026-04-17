@@ -69,7 +69,6 @@ class SelectionExtractor:
         bb = shape.BoundBox
 
         if bb.ZLength < self._Z_FLAT_TOLERANCE:
-            # Already flat — grab the first face directly
             face = self._face_from_flat(shape)
         else:
             z_mid = (bb.ZMin + bb.ZMax) / 2.0
