@@ -1,55 +1,42 @@
-# SpurLine v0.3.0
+# SpurLine v0.4.0
 
-## New: Extract profiles from existing gears
+## Interactive cutting plane
 
-Select one or more gear objects already in your FreeCAD document — from the
-FCGear workbench, imported STEP files, or any Part with a 3D shape — and
-extract 2D cutting profiles directly.
+The "Extract Profile from Selection" panel now shows a visible, semi-transparent
+cutting plane on the selected objects.  Controls in the panel let you position
+it without leaving the task panel:
 
-- **Extract Profile from Selection** toolbar button and menu entry
-- Per-object copy count and optional bore/keyway override
-- Multi-face sheet layout (each gear type on its own row)
-- Handles gears at arbitrary positions: slices at the shape's Z midpoint
-  and re-centers the profile at the origin
-- Preserves internal features (bore holes, offset holes) from the 3D model
-- Preview objects are automatically removed when the panel is closed
+- **Top / Front / Right** preset buttons switch the plane orientation
+- **Offset slider** drags the plane along its normal axis
+- The plane is sized and centered automatically to the combined bounding box
+  of all selected objects
+- Supports objects inside containers (App::Part, PartDesign::Body) via
+  global placement transforms
 
-## Automatic connection pairing
+## Multi-slice export
 
-SpurLine identifies itself as `"FreeCAD (SpurLine)"` and requests access
-via `POST /api/connect` on the local REST API.  A consent dialog appears in
-LightBurn / MillMage each time a new secret is needed; the secret is stored
-in FreeCAD preferences for reuse across sessions.
+A new **Multi-Slice** tab sends cross-sections at regular intervals as
+separate DXF uploads:
 
-- **SpurLine > Reset authorizations** clears stored secrets so the next
-  send triggers a fresh consent prompt
-- Auth errors are reported with guidance to reset and re-authorize
-  (no automatic silent reconnect — each connect shows a consent dialog)
+- **Fixed distance** mode: set mm spacing between slices
+- **Slice count** mode: set the number of evenly-spaced slices
+- Per-slice progress feedback during upload
+- Slice offsets are inset by 0.01 mm from bounding box faces to avoid
+  tangent-plane failures
 
-## Grouped shape import
+## Arbitrary-plane slicing
 
-Uploaded profiles are now sent with `X-Group-Shapes: true`, so all shapes
-in a multi-copy layout arrive as a single group in LightBurn / MillMage.
-
-## Progress feedback
-
-The send pipeline now shows step-by-step status in the panel label
-("Generating profile..." → "Exporting DXF..." → "Uploading to LightBurn...")
-and displays FreeCAD's progress indicator in the status bar.
+The extraction engine now supports slicing at any position and orientation,
+not just the Z midpoint.  The shape is transformed into the cutting plane's
+local coordinate system and sliced at Z=0, reusing the fast native
+`Shape.slice()` path.
 
 ## Bug fixes
 
-- Fixed timing gear creation: FCGear property is `type` (not `belt_type`),
-  values are lowercase (`gt2`, `gt3`, `gt5`, `gt8`, `htd3`, `htd5`, `htd8`)
-- Fixed gear profile corruption when an active PartDesign body exists —
-  temporary gears are now created as standalone Part::FeaturePython objects,
-  never added to the active body
-- Profile extraction uses `Shape.slice()` instead of boolean `section()`
-  with a helper plane — significantly faster for complex shapes
-- Holes are composited via `Part::FaceMakerBullseye` in a single pass,
-  with a boolean-cut fallback
-- Fixed `clear_all_secrets` using `SetString("")` instead of `RemString`
-  for reliable in-session clearing
+- Fixed objects inside containers (App::Part, PartDesign::Body) not aligning
+  with the cutting plane — now uses `getGlobalPlacement()` for bounding box
+  computation and shape extraction
+- Fixed repository URL in package.xml
 
 ## Dependencies
 

@@ -48,6 +48,9 @@ secret.  If your stored secret becomes invalid (e.g. the server was
 reinstalled), use **SpurLine > Reset authorizations** from the menu to
 clear it, then click Send again to re-authorize.
 
+The default port is **19522**.  If LightBurn or MillMage is configured to
+listen on a different port, use **SpurLine > Set port...** to change it.
+
 ## Project structure
 
 ```
@@ -62,6 +65,7 @@ SpurLine/
 │   │   ├── cmd_rack.py                 ← Toolbar command: rack
 │   │   ├── cmd_timing.py              ← Toolbar command: timing pulley
 │   │   ├── cmd_extract.py             ← Toolbar command: extract from selection
+│   │   ├── cmd_port.py                ← Menu command: set port
 │   │   └── cmd_settings.py            ← Menu command: reset authorizations
 │   ├── ui/
 │   │   ├── gear_panel.py              ← Task panel for gear creation
@@ -73,7 +77,7 @@ SpurLine/
 │   ├── api/
 │   │   └── client.py                  ← REST client (connect + file upload)
 │   └── prefs/
-│       └── preferences.py             ← Shared secret storage
+│       └── preferences.py             ← Port + shared secret storage
 └── resources/icons/                    ← Toolbar SVG icons
 ```
 
@@ -87,13 +91,27 @@ SpurLine/
 4. Optionally click **Preview in FreeCAD** to inspect and measure the profile
 5. Click **Send to LightBurn** or **Send to MillMage**
 
-### Extract profiles from existing gears
+### Extract profiles from existing objects
 
-1. Create or open a document with existing gear objects (e.g. from the FCGear workbench)
-2. Select one or more gear objects in the model tree
+1. Open a document with existing objects (FCGear gears, STEP imports, any Part)
+2. Select one or more objects in the model tree
 3. Click **Extract Profile from Selection** in the toolbar
-4. Set copies per gear and optional bore/keyway overrides
-5. Click **Preview in FreeCAD** or **Send to LightBurn / MillMage**
+4. A blue cutting plane appears on the selected objects
+5. Use the **Cutting Plane** controls to set the orientation (Top / Front / Right)
+   and drag the offset slider to position the slice
+6. Set copies per object and optional bore/keyway overrides
+7. Click **Preview in FreeCAD** or **Send to LightBurn / MillMage**
+
+### Multi-slice export
+
+To export cross-sections at regular intervals through an object:
+
+1. Follow the steps above to select objects and set the cutting plane orientation
+2. Switch to the **Multi-Slice** tab
+3. Choose a mode: **Fixed distance** (set mm spacing) or **Slice count** (set
+   number of evenly-spaced slices)
+4. Click **Preview All Slices** to inspect, or **Send to LightBurn / MillMage**
+   to upload each slice as a separate DXF file
 
 ## License
 

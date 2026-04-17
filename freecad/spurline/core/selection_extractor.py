@@ -8,10 +8,10 @@ this class works on shapes that already exist in the document —
 FCGear objects, imported STEP parts, any Part::Feature with a solid.
 
 Steps:
-  1. Find the Z midpoint of the shape's bounding box
-  2. Slice at that Z level to obtain a 2D profile
-  3. Re-center the resulting face at XY origin
-  4. Optionally cut bore hole and keyway slot
+  1. Slice the shape at the user-positioned cutting plane
+     (or at the Z midpoint if no placement is given)
+  2. Re-center the resulting face at XY origin
+  3. Optionally cut bore hole and keyway slot
 
 This class is pure geometry — no UI, no file I/O.
 """
@@ -37,6 +37,7 @@ class SelectionExtractor:
         obj,
         bore: Optional[float] = None,
         keyway_w: Optional[float] = None,
+        placement: Optional[App.Placement] = None,
     ) -> Part.Face:
         """
         Extract a 2D profile from ``obj.Shape``.
@@ -49,6 +50,10 @@ class SelectionExtractor:
             Bore diameter in mm.  None or 0 means no bore.
         keyway_w : float or None
             Keyway width in mm.  None or 0 means no keyway.
+        placement : App.Placement or None
+            The cutting plane's placement.  If provided, the shape is
+            sliced at this plane (arbitrary position and orientation).
+            If None, falls back to slicing at the Z midpoint.
 
         Returns
         -------
@@ -65,11 +70,13 @@ class SelectionExtractor:
                 f"Object '{getattr(obj, 'Label', '?')}' has no usable Shape."
             )
 
-        shape = obj.Shape
+        shape = self._global_shape(obj)
         bb = shape.BoundBox
 
         if bb.ZLength < self._Z_FLAT_TOLERANCE:
             face = self._face_from_flat(shape)
+        elif placement is not None:
+            face = self._slice_at_plane(shape, placement)
         else:
             z_mid = (bb.ZMin + bb.ZMax) / 2.0
             face = self._slice_at_z(shape, z_mid)
@@ -119,12 +126,42 @@ class SelectionExtractor:
         """Bounding-box dimensions string, e.g. '45.2 x 45.2 mm'."""
         if not SelectionExtractor.has_shape(obj):
             return ""
-        bb = obj.Shape.BoundBox
+        bb = SelectionExtractor._global_shape(obj).BoundBox
         return f"{bb.XLength:.1f} x {bb.YLength:.1f} mm"
 
     # ------------------------------------------------------------------
     # Private geometry helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _global_shape(obj) -> Part.Shape:
+        """
+        Return a copy of *obj*'s shape in global document coordinates.
+
+        ``obj.Shape`` is in the parent container's local space.  If the
+        object sits inside an ``App::Part`` or ``PartDesign::Body`` that
+        has its own Placement, we need to apply the full global transform
+        so the shape aligns with top-level objects like the cutting plane.
+        """
+        shape = obj.Shape.copy()
+        if hasattr(obj, "getGlobalPlacement"):
+            shape.Placement = obj.getGlobalPlacement()
+        return shape
+
+    @staticmethod
+    def _slice_at_plane(shape: Part.Shape, placement: App.Placement) -> Part.Face:
+        """
+        Slice *shape* at an arbitrary cutting plane defined by *placement*.
+
+        Transforms the shape into the plane's local coordinate system
+        (where the cutting plane becomes Z=0), slices there using the
+        fast native ``Shape.slice()``, then returns the result in the
+        plane's local XY — already flat 2D.
+        """
+        inv = placement.inverse()
+        transformed = shape.copy()
+        transformed.transformShape(inv.Matrix)
+        return SelectionExtractor._slice_at_z(transformed, 0.0)
 
     @staticmethod
     def _slice_at_z(shape: Part.Shape, z: float) -> Part.Face:
