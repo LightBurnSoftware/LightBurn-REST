@@ -32,6 +32,7 @@ class SpurLineWorkbench(FreeCADGui.Workbench):
             cmd_rack,
             cmd_timing,
             cmd_extract,
+            cmd_port,
             cmd_settings,
         )
 
@@ -43,7 +44,7 @@ class SpurLineWorkbench(FreeCADGui.Workbench):
         ]
 
         self.appendToolbar("SpurLine", self._commands)
-        self.appendMenu("SpurLine", self._commands + ["Separator", "SpurLine_Settings"])
+        self.appendMenu("SpurLine", self._commands + ["Separator", "SpurLine_Port", "SpurLine_Settings"])
 
     def Activated(self):
         """Called every time the user switches into this workbench."""

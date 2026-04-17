@@ -3,9 +3,7 @@ SpurLine — SpurLinePrefs
 
 Thin wrapper around FreeCAD's built-in preference store.
 Stores the shared secrets obtained from LightBurn and MillMage
-via the ``/api/connect`` pairing flow.
-
-The server URL is fixed at ``https://localhost:8080``.
+via the ``/api/connect`` pairing flow, and the localhost port.
 """
 
 from __future__ import annotations
@@ -16,8 +14,8 @@ from urllib.parse import urlparse, parse_qs
 import FreeCAD
 
 
-_PARAM_PATH = "User parameter:BaseApp/Preferences/Mod/SpurLine"
-_BASE_URL   = "https://localhost:8080"
+_PARAM_PATH  = "User parameter:BaseApp/Preferences/Mod/SpurLine"
+_DEFAULT_PORT = 19522
 
 
 @dataclass
@@ -28,7 +26,7 @@ class EndpointConfig:
     Attributes
     ----------
     url : str
-        Base HTTPS URL (always ``https://localhost:8080``).
+        Base HTTPS URL, e.g. ``https://localhost:19522``.
     token : str
         Shared secret for HMAC-SHA256 auth.  Empty if not yet authorized.
     """
@@ -41,6 +39,7 @@ class SpurLinePrefs:
     Read/write SpurLine preferences via FreeCAD's built-in param store.
     """
 
+    _PORT_KEY    = "Port"
     _SECRET_KEYS = {
         "lightburn": "LightBurnSecret",
         "millmage":  "MillMageSecret",
@@ -67,13 +66,25 @@ class SpurLinePrefs:
         """
         Return the endpoint for the given target.
 
-        Always succeeds — the URL is fixed.  The ``token`` field is
-        empty if no secret has been obtained yet.
+        Always succeeds.  The ``token`` field is empty if no secret
+        has been obtained yet.
         """
         self._validate_target(target)
         self._maybe_migrate(target)
         secret = self._params.GetString(self._SECRET_KEYS[target], "")
-        return EndpointConfig(url=_BASE_URL, token=secret)
+        return EndpointConfig(url=self._base_url(), token=secret)
+
+    def get_port(self) -> int:
+        """Return the configured localhost port (default: 19522)."""
+        return self._params.GetInt(self._PORT_KEY, _DEFAULT_PORT)
+
+    def set_port(self, port: int):
+        """
+        Set the localhost port.  Clears stored secrets because a
+        different port means a different server instance.
+        """
+        self._params.SetInt(self._PORT_KEY, port)
+        self.clear_all_secrets()
 
     def set_secret(self, target: str, secret: str):
         """Store the shared secret obtained from ``/api/connect``."""
@@ -88,6 +99,9 @@ class SpurLinePrefs:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _base_url(self) -> str:
+        return f"https://localhost:{self.get_port()}"
 
     @staticmethod
     def _validate_target(target: str):

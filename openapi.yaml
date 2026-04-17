@@ -42,7 +42,7 @@ info:
     - **Normal queue**: all other commands — executed in FIFO order
 
 servers:
-  - url: https://localhost:8080
+  - url: https://localhost:19522
     description: Local server (default port)
 
 security:
