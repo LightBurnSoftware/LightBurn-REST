@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="60mm" viewBox="0 0 100 60">
+  <!-- Two squares sharing the edge at x=50 (y 10..50). The dedup should cut
+       that shared edge once: the second square loses it. -->
+  <rect x="10" y="10" width="40" height="40" fill="none" stroke="#000000" stroke-width="0.5"/>
+  <rect x="50" y="10" width="40" height="40" fill="none" stroke="#ff0000" stroke-width="0.5"/>
+</svg>

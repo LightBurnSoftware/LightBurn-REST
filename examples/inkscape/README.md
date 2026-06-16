@@ -50,7 +50,9 @@ Options: **Port** (default 19522), **De-duplicate shared segments**, and
 ## Requirements & testing
 
 - Inkscape 1.0+ (uses the bundled `inkex` Python module). No extra packages.
+  Verified against Inkscape 1.4 / inkex 1.4.
 - The de-dup core has a standalone self-check: `python dedupe.py`.
-- The `inkex` glue (`lightburn_send.py`) can only be exercised inside Inkscape —
-  install it and run on a drawing with two shapes sharing an edge to confirm
-  the shared edge is dropped from the second shape.
+- Sample drawings live in [`test-svgs/`](test-svgs/): two squares sharing an
+  edge, and two triangles sharing a diagonal. Open one in Inkscape and send it —
+  the shared edge should be dropped from the second shape, and each shape's
+  colour preserved.

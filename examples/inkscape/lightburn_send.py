@@ -55,7 +55,9 @@ class LightBurnSend(inkex.EffectExtension):
             raise inkex.AbortExtension("Nothing to send — draw or select some shapes first.")
 
         shapes = [element_segments(e) for e in elems]
-        styles = [str(e.style) for e in elems]
+        # specified_style() folds in presentation attributes (stroke=, fill=) and
+        # inherited styles — so colors survive (LightBurn maps them to cut layers).
+        styles = [str(e.specified_style()) for e in elems]
         if self.options.dedupe:
             shapes = dedupe(shapes)
 
