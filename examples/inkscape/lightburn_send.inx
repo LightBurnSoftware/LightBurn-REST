@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <name>Send to LightBurn / MillMage</name>
+  <id>com.lightburnsoftware.lightburn_send</id>
+  <param name="port" type="int" min="1" max="65535" gui-text="Port">19522</param>
+  <param name="dedupe" type="bool" gui-text="De-duplicate shared segments">true</param>
+  <param name="selected_only" type="bool"
+         gui-text="Selection only (uncheck to send the whole document)">true</param>
+  <effect needs-live-preview="false">
+    <object-type>all</object-type>
+    <effects-menu>
+      <submenu name="LightBurn"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command location="inx" interpreter="python">lightburn_send.py</command>
+  </script>
+</inkscape-extension>
