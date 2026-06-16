@@ -9,7 +9,7 @@ info:
 
     ## Authentication
 
-    All endpoints except `POST /api/bind`, `POST /api/connect`, and `GET /`
+    All endpoints except `POST /api/connect` and `GET /`
     require a Bearer token derived from a shared secret using HMAC-SHA256:
 
     ```
@@ -21,11 +21,8 @@ info:
 
     ## Obtaining a Secret
 
-    There are two ways to obtain a shared secret:
+    Obtain a shared secret by pairing a local application:
 
-    - **LAN pairing (`POST /api/bind`)**: For remote devices (e.g. pendants).
-      Triggers a QR code in the application containing the server URL and secret.
-      Disabled when the server is in local-only mode.
     - **Local application pairing (`POST /api/connect`)**: For localhost
       applications only. Sends an `application_name` in the request body. The
       application user is shown a consent dialog every time; if approved, a new
@@ -49,13 +46,6 @@ components:
       description: HMAC-SHA256 time-based token derived from shared secret
 
   schemas:
-    OkResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: ok
-
     ErrorResponse:
       type: object
       properties:
@@ -280,30 +270,6 @@ paths:
             text/html:
               schema:
                 type: string
-
-  /api/bind:
-    post:
-      summary: Request LAN pairing QR code
-      description: |
-        Triggers the application to display a QR code containing the server URL
-        and shared secret. No authentication required. If a secret already exists
-        it is reused; calling bind again re-displays the same QR code.
-
-        Returns 403 Forbidden when the server is running in local-only mode.
-      security: []
-      responses:
-        '200':
-          description: Bind request accepted, QR code displayed in app
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OkResponse'
-        '403':
-          description: LAN-accessible API is disabled in local-only mode
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
   /api/connect:
     post:

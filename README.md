@@ -14,16 +14,15 @@ read-only project and machine-state queries, and real-time state streaming.
 | [`docs/uploading.md`](docs/uploading.md) | Importing artwork and projects |
 | `lib/` | `lightburn_rest` — a stdlib-only Python client (install from source) |
 | [`examples/spurline/`](examples/spurline/) | FreeCAD workbench that generates gear profiles and sends them to LightBurn/MillMage (reference client) |
-| `examples/inkscape/` | Inkscape extension that de-duplicates coincident SVG segments before sending (reference client) |
+| [`examples/inkscape/`](examples/inkscape/) | Inkscape extension that de-duplicates coincident SVG segments before sending (reference client) |
 
-> `lib/` and `examples/inkscape/` are in progress.
+> `lib/` is in progress.
 
 ## The API at a glance
 
 - **Transport:** plain HTTP on `http://localhost:19522` (default port).
 - **Auth:** Bearer token = `hex(HMAC-SHA256(secret, floor(unix_time / 60)))`.
-  Obtain a secret by pairing via `POST /api/connect` (localhost apps) or
-  `POST /api/bind` (LAN devices).
+  Obtain a secret by pairing a localhost app via `POST /api/connect`.
 - **Capabilities:** a token is scoped at pairing time to any of `state`
   (read-only machine/job state), `project` (read-only project data), and
   `upload` (submit files for import).

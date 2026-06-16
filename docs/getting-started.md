@@ -10,15 +10,11 @@ The full endpoint reference is [`openapi.yaml`](openapi.yaml) (render it with
 ## 1. Pair to obtain a shared secret
 
 Every authenticated endpoint needs a Bearer token derived from a **shared
-secret**. There are two ways to get one:
+secret**, obtained by pairing a local application via `POST /api/connect`
+(localhost only — shows a consent dialog in the desktop app and returns a
+secret on approval).
 
-| Endpoint | For | Notes |
-|----------|-----|-------|
-| `POST /api/connect` | localhost applications | Shows a consent dialog in the desktop app; returns a secret on approval. |
-| `POST /api/bind` | LAN devices (e.g. pendants) | Triggers a QR code containing the server URL and secret. |
-
-Most integrations use `/api/connect`. Send your app name and the
-[capabilities](capabilities.md) you need:
+Send your app name and the [capabilities](capabilities.md) you need:
 
 ```http
 POST /api/connect HTTP/1.1
@@ -73,8 +69,8 @@ req = urllib.request.Request(
 print(urllib.request.urlopen(req).read())
 ```
 
-A missing or invalid token returns `401`. All endpoints except `/`,
-`POST /api/bind`, and `POST /api/connect` require the token.
+A missing or invalid token returns `401`. All endpoints except `/` and
+`POST /api/connect` require the token.
 
 ## Next
 
