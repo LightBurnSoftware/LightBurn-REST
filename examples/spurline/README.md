@@ -119,4 +119,4 @@ To export cross-sections at regular intervals through an object:
 
 ## License
 
-GPL-3.0
+GPL-3.0 — see [LICENSE](LICENSE).

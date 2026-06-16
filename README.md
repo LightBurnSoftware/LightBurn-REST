@@ -9,6 +9,9 @@ read-only project and machine-state queries, and real-time state streaming.
 | Path | What it is |
 |------|------------|
 | [`docs/openapi.yaml`](docs/openapi.yaml) | The API specification — single source of truth |
+| [`docs/getting-started.md`](docs/getting-started.md) | Pairing, HMAC token derivation, first call |
+| [`docs/capabilities.md`](docs/capabilities.md) | Token scopes and the endpoints each unlocks |
+| [`docs/uploading.md`](docs/uploading.md) | Importing artwork and projects |
 | `lib/` | `lightburn_rest` — a stdlib-only Python client (install from source) |
 | [`examples/spurline/`](examples/spurline/) | FreeCAD workbench that generates gear profiles and sends them to LightBurn/MillMage (reference client) |
 | `examples/inkscape/` | Inkscape extension that de-duplicates coincident SVG segments before sending (reference client) |
@@ -29,4 +32,8 @@ See [`docs/openapi.yaml`](docs/openapi.yaml) for the full endpoint reference.
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE).
+The license for this repository is still being decided — treat the contents as
+all rights reserved until one is chosen.
+
+Individual components carry their own license where required: the FreeCAD
+plugin is **GPL-3.0** (see [`examples/spurline/LICENSE`](examples/spurline/LICENSE)).
