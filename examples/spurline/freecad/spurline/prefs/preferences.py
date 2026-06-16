@@ -8,8 +8,6 @@ via the ``/api/connect`` pairing flow, and the localhost port.
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional
-from urllib.parse import urlparse, parse_qs
 
 import FreeCAD
 
@@ -26,7 +24,7 @@ class EndpointConfig:
     Attributes
     ----------
     url : str
-        Base HTTPS URL, e.g. ``https://localhost:19522``.
+        Base URL, e.g. ``http://localhost:19522``.
     token : str
         Shared secret for HMAC-SHA256 auth.  Empty if not yet authorized.
     """
@@ -45,16 +43,6 @@ class SpurLinePrefs:
         "millmage":  "MillMageSecret",
     }
 
-    # Legacy keys from earlier versions (URL + secret combined)
-    _OLD_KEYS = {
-        "lightburn": "LightBurnEndpoint",
-        "millmage":  "MillMageEndpoint",
-    }
-    _OLD_URL_KEYS = {
-        "lightburn": "LightBurnUrl",
-        "millmage":  "MillMageUrl",
-    }
-
     def __init__(self):
         self._params = FreeCAD.ParamGet(_PARAM_PATH)
 
@@ -70,7 +58,6 @@ class SpurLinePrefs:
         has been obtained yet.
         """
         self._validate_target(target)
-        self._maybe_migrate(target)
         secret = self._params.GetString(self._SECRET_KEYS[target], "")
         return EndpointConfig(url=self._base_url(), token=secret)
 
@@ -101,7 +88,7 @@ class SpurLinePrefs:
     # ------------------------------------------------------------------
 
     def _base_url(self) -> str:
-        return f"https://localhost:{self.get_port()}"
+        return f"http://localhost:{self.get_port()}"
 
     @staticmethod
     def _validate_target(target: str):
@@ -109,26 +96,3 @@ class SpurLinePrefs:
             raise ValueError(
                 f"Unknown target {target!r}. Expected 'lightburn' or 'millmage'."
             )
-
-    def _maybe_migrate(self, target: str):
-        """
-        One-time migration: pull the secret out of any legacy keys
-        and clean them up.
-        """
-        # Legacy combined format: https://host:port?secret=VALUE
-        old_key = self._OLD_KEYS[target]
-        old_raw = self._params.GetString(old_key, "")
-        if old_raw:
-            try:
-                qs = parse_qs(urlparse(old_raw).query)
-                secrets = qs.get("secret", [])
-                if secrets and secrets[0]:
-                    self._params.SetString(self._SECRET_KEYS[target], secrets[0])
-            except Exception:
-                pass
-            self._params.RemString(old_key)
-
-        # Legacy separate-URL key (no longer needed)
-        old_url_key = self._OLD_URL_KEYS[target]
-        if self._params.GetString(old_url_key, ""):
-            self._params.RemString(old_url_key)

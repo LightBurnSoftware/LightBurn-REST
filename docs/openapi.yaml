@@ -1,0 +1,826 @@
+openapi: 3.1.0
+info:
+  title: LightBurn / MillMage REST API
+  version: 1.0.0
+  description: |
+    REST API for LightBurn and MillMage. Provides file upload and import,
+    read-only project and machine-state queries, and real-time state
+    streaming via Server-Sent Events.
+
+    ## Authentication
+
+    All endpoints except `POST /api/bind`, `POST /api/connect`, and `GET /`
+    require a Bearer token derived from a shared secret using HMAC-SHA256:
+
+    ```
+    token = hex(HMAC-SHA256(secret, floor(unix_time / 60)))
+    ```
+
+    The server accepts tokens for the current minute and the previous minute
+    to handle clock drift.
+
+    ## Obtaining a Secret
+
+    There are two ways to obtain a shared secret:
+
+    - **LAN pairing (`POST /api/bind`)**: For remote devices (e.g. pendants).
+      Triggers a QR code in the application containing the server URL and secret.
+      Disabled when the server is in local-only mode.
+    - **Local application pairing (`POST /api/connect`)**: For localhost
+      applications only. Sends an `application_name` in the request body. The
+      application user is shown a consent dialog every time; if approved, a new
+      secret is generated and returned. The dialog has a 30-second timeout
+      after which the connection is automatically declined. Applications are
+      responsible for persisting their own secret. Each call produces a
+      distinct secret, even for the same `application_name`.
+
+servers:
+  - url: http://localhost:19522
+    description: Local server (default port)
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: HMAC-SHA256 time-based token derived from shared secret
+
+  schemas:
+    OkResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Missing 'axis' parameter
+
+    Position:
+      type: object
+      properties:
+        machine:
+          type: object
+          properties:
+            x: { type: number, example: 100.000 }
+            y: { type: number, example: 50.000 }
+            z: { type: number, example: -5.000 }
+        workpiece:
+          type: object
+          properties:
+            x: { type: number, example: 0.000 }
+            y: { type: number, example: 0.000 }
+            z: { type: number, example: -5.000 }
+
+    ConnectionStatus:
+      type: object
+      properties:
+        connected: { type: boolean }
+        device_name: { type: string, example: Shapeoko 5 Pro }
+        supports_z: { type: boolean }
+        supports_overrides: { type: boolean }
+
+    JogSettings:
+      type: object
+      properties:
+        xy_distance: { type: number, example: 10.0 }
+        z_distance: { type: number, example: 1.0 }
+        xy_speed: { type: number, example: 1500.0 }
+        z_speed: { type: number, example: 250.0 }
+        units: { type: string, enum: [mm/s, mm/min, in/min] }
+
+    SavedPosition:
+      type: object
+      properties:
+        index: { type: integer }
+        name: { type: string }
+        x: { type: number }
+        y: { type: number }
+        z: { type: number }
+        include_z: { type: boolean }
+        workpiece: { type: boolean }
+
+    JobState:
+      type: object
+      properties:
+        state: { type: string, enum: [idle, running, paused] }
+        progress: { type: number, minimum: 0, maximum: 100 }
+
+    Overrides:
+      type: object
+      properties:
+        speed_percent: { type: integer, example: 100 }
+        power_percent: { type: integer, example: 100 }
+
+    AuxState:
+      type: object
+      properties:
+        spindle_on: { type: boolean }
+        spindle_rpm: { type: integer }
+        coolant_on: { type: boolean }
+        vacuum_on: { type: boolean }
+
+    PollSnapshot:
+      type: object
+      properties:
+        position: { $ref: '#/components/schemas/Position' }
+        job: { $ref: '#/components/schemas/JobState' }
+        overrides: { $ref: '#/components/schemas/Overrides' }
+        aux: { $ref: '#/components/schemas/AuxState' }
+        connection: { $ref: '#/components/schemas/ConnectionStatus' }
+        settings: { $ref: '#/components/schemas/JogSettings' }
+
+    Error:
+      $ref: '#/components/schemas/ErrorResponse'
+
+    Point2:
+      type: object
+      properties:
+        x: { type: number }
+        y: { type: number }
+
+    LaserCut:
+      type: object
+      required: [index, name, kind, layer_index, enabled, priority, params]
+      properties:
+        index: { type: integer }
+        name: { type: string }
+        kind: { type: string, enum: [normal, image] }
+        layer_index: { type: integer }
+        enabled: { type: boolean }
+        priority: { type: integer }
+        mode:
+          type: string
+          enum: [cut, scan, offset, image, tool]
+          description: Only present when `kind == "normal"`.
+        params:
+          oneOf:
+            - type: object
+              description: Normal cut params (when `kind == "normal"`)
+              properties:
+                speed: { type: number }
+                min_power: { type: number }
+                max_power: { type: number }
+                num_passes: { type: integer }
+                z_offset: { type: number }
+                frequency: { type: integer }
+                kerf: { type: number }
+                bi_directional: { type: boolean }
+                cross_hatch: { type: boolean }
+            - type: object
+              description: Image cut params (when `kind == "image"`)
+              properties:
+                speed: { type: number }
+                max_power: { type: number }
+                dpi: { type: number }
+                dither_mode: { type: string }
+        sub_layers:
+          type: array
+          description: Only present when `kind == "normal"`.
+          items:
+            type: object
+            properties:
+              speed: { type: number }
+              max_power: { type: number }
+              z_offset: { type: number }
+
+    LaserCuts:
+      type: object
+      required: [product, cuts]
+      properties:
+        product: { type: string, enum: [lightburn] }
+        cuts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LaserCut'
+
+    CncCut:
+      type: object
+      required: [index, name, kind, layer_index, enabled, priority, operation, tool]
+      properties:
+        index: { type: integer }
+        name: { type: string }
+        kind: { type: string, enum: [normal] }
+        layer_index: { type: integer }
+        enabled: { type: boolean }
+        priority: { type: integer }
+        operation:
+          type: string
+          enum:
+            - profile
+            - pocket
+            - rest_pocket
+            - drill
+            - dogbone_slot
+            - chamfer_profile
+            - inlay_female
+            - inlay_male
+            - flute
+            - surfacing
+            - face
+            - bore
+            - relief
+            - roughing
+            - texturing
+            - image
+            - invalid
+        tool:
+          type: object
+          properties:
+            name: { type: string }
+            diameter: { type: number }
+            feed_rate: { type: number }
+            plunge_rate: { type: number }
+            spindle_rpm: { type: number }
+        vacuum: { type: boolean }
+        coolant: { type: boolean }
+
+    CncCuts:
+      type: object
+      required: [product, cuts]
+      properties:
+        product: { type: string, enum: [millmage] }
+        cuts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CncCut'
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Unauthorized
+    BadRequest:
+      description: Invalid or missing parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+paths:
+  /:
+    get:
+      summary: Placeholder HTML app
+      security: []
+      responses:
+        '200':
+          description: HTML page
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /api/bind:
+    post:
+      summary: Request LAN pairing QR code
+      description: |
+        Triggers the application to display a QR code containing the server URL
+        and shared secret. No authentication required. If a secret already exists
+        it is reused; calling bind again re-displays the same QR code.
+
+        Returns 403 Forbidden when the server is running in local-only mode.
+      security: []
+      responses:
+        '200':
+          description: Bind request accepted, QR code displayed in app
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '403':
+          description: LAN-accessible API is disabled in local-only mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/connect:
+    post:
+      summary: Request localhost application pairing
+      description: |
+        Allows a local application to request a shared secret for API access,
+        scoped to a specific set of capabilities.
+
+        Only accepts connections from localhost (127.0.0.1 / ::1). The user is
+        shown a consent dialog listing the requesting application's name and
+        the capabilities it has asked for. If they approve, a new shared
+        secret is generated and returned, bound to that capability set for
+        its lifetime. If they decline (or the 30-second timeout expires), the
+        request is rejected with 403. Each approval produces a distinct
+        secret; applications are responsible for persisting their own secret.
+
+        Capabilities are immutable for the life of a token. To change scope,
+        the application re-pairs (and the user re-approves a new dialog).
+
+        ### Capability values
+
+        | Wire string | Covers |
+        |---|---|
+        | `state` | Read-only machine and job state. `/api/status`, `/api/position`, `/api/jog/settings` (GET), `/api/goto/saved` (GET), `/api/units` (GET), `/api/events`, `/api/events/poll`. |
+        | `project` | Read-only project data. `/api/project`, `/api/layers`, `/api/cuts`, `/api/cuts/{index}`, `/api/material-library`. |
+        | `upload`  | Submit files for import. `/api/file/upload`, `/api/file/open`. |
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [application_name, capabilities]
+              properties:
+                application_name:
+                  type: string
+                  description: Display name shown to the user in the consent dialog
+                  example: My Automation Tool
+                capabilities:
+                  type: array
+                  minItems: 1
+                  description: |
+                    Capabilities the token should grant. Must be a non-empty
+                    array of known wire strings; unknown entries fail with 400.
+                  items:
+                    type: string
+                    enum: [state, project, upload]
+                  example: [state, upload]
+      responses:
+        '200':
+          description: Connection approved, secret returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  secret:
+                    type: string
+                    description: Shared secret for deriving Bearer tokens
+                    example: aB3dE7fG9hJ1kL5m
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: Connection rejected by user, timed out, or not from localhost
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/status:
+    get:
+      summary: Connection status
+      responses:
+        '200':
+          description: Current connection state and device capabilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/position:
+    get:
+      summary: Current position snapshot
+      responses:
+        '200':
+          description: Machine and workpiece coordinates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Position'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/jog/settings:
+    get:
+      summary: Get jog distance and speed settings
+      responses:
+        '200':
+          description: Current jog settings in display units
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JogSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/goto/saved:
+    get:
+      summary: List saved positions
+      responses:
+        '200':
+          description: Array of saved positions from device profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  positions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedPosition'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/units:
+    get:
+      summary: Get current display units
+      responses:
+        '200':
+          description: Current units
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  units:
+                    type: string
+                    enum: [mm/s, mm/min, in/min]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/file/upload:
+    post:
+      summary: Upload a file to import
+      description: |
+        Send the file as the raw request body. Include the filename in the
+        `X-Filename` header. Returns 202 immediately; the import result is
+        reported asynchronously via the `file_imported` SSE event.
+      parameters:
+        - name: X-Filename
+          in: header
+          schema:
+            type: string
+            default: upload.lbrn2
+          description: Filename for the uploaded file
+        - name: X-Group-Shapes
+          in: header
+          schema:
+            type: string
+            enum: ["true", "false"]
+            default: "false"
+          description: |
+            When "true", imported shapes are kept as a group. When "false"
+            (default), the application's global grouping preference applies.
+        - name: X-Position-X
+          in: header
+          required: false
+          schema: { type: number }
+          description: |
+            Optional X coordinate (workspace mm, workpiece origin) for the
+            anchor point of the imported shapes' bounding box. Must be paired
+            with `X-Position-Y`. When omitted, the import lands at the
+            current view center (the default "drop point").
+        - name: X-Position-Y
+          in: header
+          required: false
+          schema: { type: number }
+          description: |
+            Optional Y coordinate (workspace mm, workpiece origin). Must be
+            paired with `X-Position-X`.
+        - name: X-Origin
+          in: header
+          required: false
+          schema:
+            type: string
+            enum:
+              - top-left
+              - top-center
+              - top-right
+              - middle-left
+              - center
+              - middle-right
+              - bottom-left
+              - bottom-center
+              - bottom-right
+            default: center
+          description: |
+            Which corner of the imported shapes' bounding box should be
+            anchored at (`X-Position-X`, `X-Position-Y`). Ignored unless
+            both position headers are present. Defaults to `center`.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '202':
+          description: File received, import in progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: accepted }
+                  filename: { type: string, example: design.svg }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/file/open:
+    post:
+      summary: Upload a file and open it as the new project
+      description: |
+        Replaces the current project with the uploaded file (File → Open
+        semantics). The current project is closed first; if it has unsaved
+        changes the desktop shows the standard save-changes prompt before
+        the open proceeds. Unlike `/api/file/upload`, no shapes are merged
+        into the existing project — the project is replaced wholesale.
+
+        Same authorization scope as `/api/file/upload` (`upload` capability).
+        No position or grouping headers — irrelevant for the replace-project
+        flow.
+      parameters:
+        - name: X-Filename
+          in: header
+          schema:
+            type: string
+            default: upload.lbrn2
+          description: Filename hint; picks the loader/translator.
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '202':
+          description: File received, open in progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: accepted }
+                  filename: { type: string, example: project.lbrn2 }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/project:
+    get:
+      summary: Current project metadata
+      description: |
+        Top-level read-only snapshot of the loaded project: filename,
+        modified flag, shape count, workspace dimensions, and the connected
+        device. Distance values are in the user's current display units.
+      responses:
+        '200':
+          description: Project metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filename: { type: string }
+                  modified: { type: boolean }
+                  shape_count: { type: integer }
+                  units:
+                    type: object
+                    properties:
+                      distance: { type: string, example: mm }
+                      speed: { type: string, example: mm/s }
+                  workspace:
+                    type: object
+                    properties:
+                      machine_size:
+                        $ref: '#/components/schemas/Point2'
+                      workpiece_size:
+                        $ref: '#/components/schemas/Point2'
+                      workpiece_offset:
+                        $ref: '#/components/schemas/Point2'
+                      machine_view: { type: boolean }
+                  device:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      supports_z: { type: boolean }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/layers:
+    get:
+      summary: All 32 layer definitions
+      description: |
+        Returns every layer slot (not just the ones in use). Clients that
+        want to display only used layers should filter on `in_use == true`.
+        Colors are `"#RRGGBB"` hex strings for direct CSS use.
+      responses:
+        '200':
+          description: Layers snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active_index:
+                    type: integer
+                    description: Index of the currently selected layer, or -1.
+                  layers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        index: { type: integer }
+                        name: { type: string }
+                        color:
+                          type: string
+                          example: "#000000"
+                          pattern: "^#[0-9a-fA-F]{6}$"
+                        type:
+                          type: string
+                          enum: [normal, tool, none]
+                        hidden: { type: boolean }
+                        in_use:
+                          type: boolean
+                          description: True if any shape references this layer.
+                        shape_count:
+                          type: integer
+                          description: Number of shapes referencing this layer.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/cuts:
+    get:
+      summary: Cut settings for all layers
+      description: |
+        Product-specific response: the payload shape differs between
+        LightBurn (laser cuts + image cuts) and MillMage (CNC operations).
+        Inspect the `product` field to dispatch client-side.
+
+        Image cut settings are included inline in the LightBurn response
+        with `kind: "image"`; regular cuts use `kind: "normal"`. Each
+        entry's `index` is a dense global 0..N-1 position across both
+        kinds in the returned array — use that value with `/api/cuts/{index}`.
+        The `layer_index` field is separate from `index` and maps to the
+        actual layer slot on the desktop.
+
+        Distance and speed values use the user's current display units.
+      responses:
+        '200':
+          description: Cut settings snapshot
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LaserCuts'
+                  - $ref: '#/components/schemas/CncCuts'
+                discriminator:
+                  propertyName: product
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/cuts/{index}:
+    get:
+      summary: Single cut setting by global flat index
+      description: |
+        `index` is the dense 0..N-1 value taken from an entry's `index`
+        field in `/api/cuts` (normal cuts first, image cuts after).
+      parameters:
+        - name: index
+          in: path
+          required: true
+          schema: { type: integer, minimum: 0 }
+      responses:
+        '200':
+          description: Single cut entry (bare, not wrapped)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LaserCut'
+                  - $ref: '#/components/schemas/CncCut'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Cut index out of range or slot is empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/material-library:
+    get:
+      summary: Loaded material / operations library
+      description: |
+        Returns the currently-loaded material library. Product-specific
+        payload: LightBurn returns a single `CutLibrary` (the one selected
+        in the library picker) as a flat list of entries; MillMage returns
+        the set of loaded operations library files, each as a tree of
+        folders and operations.
+
+        Inspect the `product` field to dispatch client-side. On LightBurn,
+        if no library is currently selected, `entries` is an empty array.
+      responses:
+        '200':
+          description: Loaded library
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: LightBurn (laser) material library.
+                    properties:
+                      product: { type: string, enum: [lightburn] }
+                      name: { type: string }
+                      filename: { type: string }
+                      entries:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            guid: { type: integer }
+                            material: { type: string }
+                            description: { type: string }
+                            no_thick_title:
+                              type: string
+                              description: Title shown when `thickness` is -1.
+                            thickness:
+                              type: number
+                              description: Material thickness; -1 for "no thickness" entries.
+                            locked: { type: boolean }
+                            cut:
+                              $ref: '#/components/schemas/LaserCut'
+                  - type: object
+                    description: MillMage (CNC) operations library.
+                    properties:
+                      product: { type: string, enum: [millmage] }
+                      libraries:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            name: { type: string }
+                            filename: { type: string }
+                            content:
+                              type: object
+                              description: |
+                                The raw operations library file content as
+                                stored on disk (operations tree + version
+                                metadata).
+                discriminator:
+                  propertyName: product
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/events:
+    get:
+      summary: SSE event stream
+      description: |
+        Server-Sent Events stream for real-time state updates. Connect via
+        `fetch()` with an `Authorization` header (the browser `EventSource`
+        API does not support custom headers).
+
+        ### Event types
+
+        | Event | Frequency | Description |
+        |-------|-----------|-------------|
+        | `position` | ~2 Hz | Machine and workpiece coordinates |
+        | `job` | ~2 Hz | Job state (idle/running/paused) and progress |
+        | `settings` | On change | Jog distance, speed, units |
+        | `overrides` | On change | Feed rate and power override percentages |
+        | `aux` | On change | Spindle, coolant, vacuum state |
+        | `connection` | On change | Device connected, name, capabilities |
+        | `file_imported` | After upload | Import success/failure |
+
+        A `:keepalive` comment is sent every 30 seconds.
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/events/poll:
+    get:
+      summary: Polling fallback
+      description: |
+        Returns the latest state snapshot as a single JSON object. Use this
+        if SSE is unavailable.
+      responses:
+        '200':
+          description: Complete state snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollSnapshot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'

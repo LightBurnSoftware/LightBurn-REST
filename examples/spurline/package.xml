@@ -6,7 +6,7 @@
   <date>2026-04-17</date>
   <maintainer email="">SpurLine Contributors</maintainer>
   <license>GPL-3.0</license>
-  <url type="repository">https://github.com/LightBurnSoftware/SpurLine</url>
+  <url type="repository">https://github.com/LightBurnSoftware/lightburn-rest</url>
   <content>
     <workbench>InitGui.py</workbench>
   </content>

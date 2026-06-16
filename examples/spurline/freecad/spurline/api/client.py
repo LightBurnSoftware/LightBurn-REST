@@ -22,7 +22,6 @@ import json
 import time
 import urllib.request
 import urllib.error
-import ssl
 from dataclasses import dataclass
 from typing import Optional
 
@@ -111,9 +110,10 @@ class SpurLineClient:
         secret without re-prompting.
         """
         url  = f"{base_url}{self._CONNECT_PATH}"
-        body = json.dumps({"application_name": APPLICATION_NAME}).encode()
-
-        ssl_ctx = self._make_ssl_context()
+        body = json.dumps({
+            "application_name": APPLICATION_NAME,
+            "capabilities": ["upload"],  # plugin only uploads files
+        }).encode()
 
         req = urllib.request.Request(
             url,
@@ -126,7 +126,6 @@ class SpurLineClient:
             with urllib.request.urlopen(
                 req,
                 timeout=self._CONNECT_TIMEOUT,
-                context=ssl_ctx,
             ) as resp:
                 data = json.loads(resp.read())
                 secret = data.get("secret", "")
@@ -212,14 +211,6 @@ class SpurLineClient:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _make_ssl_context() -> ssl.SSLContext:
-        """Self-signed certs are typical on a LAN."""
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode    = ssl.CERT_NONE
-        return ctx
-
-    @staticmethod
     def _compute_bearer_token(secret: str) -> str:
         """
         Compute the HMAC-SHA256 time-based Bearer token.
@@ -238,7 +229,6 @@ class SpurLineClient:
         fmt: str,
     ) -> SendResult:
         """Perform the actual HTTP POST and return a SendResult."""
-        ssl_ctx = self._make_ssl_context()
         bearer  = self._compute_bearer_token(secret)
 
         headers = {
@@ -258,7 +248,6 @@ class SpurLineClient:
         with urllib.request.urlopen(
             req,
             timeout=self._TIMEOUT_SECONDS,
-            context=ssl_ctx,
         ) as response:
             http_status = response.status
             if http_status == 202:

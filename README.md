@@ -1,118 +1,32 @@
-# SpurLine
+# lightburn-rest
 
-A FreeCAD workbench that generates 2D gear profiles and sends them
-directly to **LightBurn** or **MillMage** for laser cutting or CNC milling.
+Documentation and reference clients for the **LightBurn / MillMage REST API** —
+the local HTTP API exposed by the desktop applications for file upload/import,
+read-only project and machine-state queries, and real-time state streaming.
 
-## Supported gear types
+## Contents
 
-| Type | FreeCAD gear | Notes |
-|------|-------------|-------|
-| Involute spur gear | `CreateInvoluteGear` | Bore + keyway support |
-| Involute rack | `CreateInvoluteRack` | Linear, no bore |
-| Timing belt pulley | `CreateTimingGear` | gt2, gt3, gt5, gt8, htd3, htd5, htd8 |
+| Path | What it is |
+|------|------------|
+| [`docs/openapi.yaml`](docs/openapi.yaml) | The API specification — single source of truth |
+| `lib/` | `lightburn_rest` — a stdlib-only Python client (install from source) |
+| [`examples/spurline/`](examples/spurline/) | FreeCAD workbench that generates gear profiles and sends them to LightBurn/MillMage (reference client) |
+| `examples/inkscape/` | Inkscape extension that de-duplicates coincident SVG segments before sending (reference client) |
 
-## Requirements
+> `lib/` and `examples/inkscape/` are in progress.
 
-- FreeCAD 1.0+
-- The **FCGear** (freecad.gears) addon — install via Tools → Addon Manager
+## The API at a glance
 
-## Installation (development)
+- **Transport:** plain HTTP on `http://localhost:19522` (default port).
+- **Auth:** Bearer token = `hex(HMAC-SHA256(secret, floor(unix_time / 60)))`.
+  Obtain a secret by pairing via `POST /api/connect` (localhost apps) or
+  `POST /api/bind` (LAN devices).
+- **Capabilities:** a token is scoped at pairing time to any of `state`
+  (read-only machine/job state), `project` (read-only project data), and
+  `upload` (submit files for import).
 
-Symlink this folder into FreeCAD's user `Mod/` directory so edits take
-effect on the next FreeCAD restart without copying files:
-
-**Linux / macOS**
-```bash
-ln -s /path/to/SpurLine ~/.local/share/FreeCAD/Mod/SpurLine
-```
-
-**Windows** (run as Administrator in PowerShell)
-```powershell
-New-Item -ItemType SymbolicLink `
-  -Path "$env:APPDATA\FreeCAD\v1-1\Mod\SpurLine" `
-  -Target "C:\path\to\SpurLine"
-```
-
-Then restart FreeCAD and select **SpurLine** from the workbench dropdown.
-
-## Configuration
-
-No manual configuration is required.  When you click **Send to LightBurn**
-or **Send to MillMage** for the first time, SpurLine identifies itself as
-`"FreeCAD (SpurLine)"` and requests access via the local REST API.  A
-consent dialog appears in LightBurn / MillMage — approve it and the
-shared secret is stored in FreeCAD's preferences for future sends.
-
-Each call to `/api/connect` produces a new consent prompt and a distinct
-secret.  If your stored secret becomes invalid (e.g. the server was
-reinstalled), use **SpurLine > Reset authorizations** from the menu to
-clear it, then click Send again to re-authorize.
-
-The default port is **19522**.  If LightBurn or MillMage is configured to
-listen on a different port, use **SpurLine > Set port...** to change it.
-
-## Project structure
-
-```
-SpurLine/
-├── InitGui.py                          ← FreeCAD workbench entry point
-├── Init.py                             ← Headless init (no-op)
-├── package.xml                         ← Addon Manager metadata
-├── openapi.yaml                        ← LightBurn / MillMage REST API spec
-├── freecad/spurline/
-│   ├── commands/
-│   │   ├── cmd_involute.py             ← Toolbar command: involute gear
-│   │   ├── cmd_rack.py                 ← Toolbar command: rack
-│   │   ├── cmd_timing.py              ← Toolbar command: timing pulley
-│   │   ├── cmd_extract.py             ← Toolbar command: extract from selection
-│   │   ├── cmd_port.py                ← Menu command: set port
-│   │   └── cmd_settings.py            ← Menu command: reset authorizations
-│   ├── ui/
-│   │   ├── gear_panel.py              ← Task panel for gear creation
-│   │   └── extract_panel.py           ← Task panel for profile extraction
-│   ├── core/
-│   │   ├── profile_extractor.py       ← Create gear → 2D Part.Face
-│   │   ├── selection_extractor.py     ← Existing shape → 2D Part.Face
-│   │   └── sheet_composer.py          ← Grid layout + DXF/SVG export
-│   ├── api/
-│   │   └── client.py                  ← REST client (connect + file upload)
-│   └── prefs/
-│       └── preferences.py             ← Port + shared secret storage
-└── resources/icons/                    ← Toolbar SVG icons
-```
-
-## Typical workflow
-
-### Create a new gear profile
-
-1. Switch to the **SpurLine** workbench
-2. Click a gear type in the toolbar (involute, rack, or timing pulley)
-3. Set teeth count, module, bore diameter, and number of copies
-4. Optionally click **Preview in FreeCAD** to inspect and measure the profile
-5. Click **Send to LightBurn** or **Send to MillMage**
-
-### Extract profiles from existing objects
-
-1. Open a document with existing objects (FCGear gears, STEP imports, any Part)
-2. Select one or more objects in the model tree
-3. Click **Extract Profile from Selection** in the toolbar
-4. A blue cutting plane appears on the selected objects
-5. Use the **Cutting Plane** controls to set the orientation (Top / Front / Right)
-   and drag the offset slider to position the slice
-6. Set copies per object and optional bore/keyway overrides
-7. Click **Preview in FreeCAD** or **Send to LightBurn / MillMage**
-
-### Multi-slice export
-
-To export cross-sections at regular intervals through an object:
-
-1. Follow the steps above to select objects and set the cutting plane orientation
-2. Switch to the **Multi-Slice** tab
-3. Choose a mode: **Fixed distance** (set mm spacing) or **Slice count** (set
-   number of evenly-spaced slices)
-4. Click **Preview All Slices** to inspect, or **Send to LightBurn / MillMage**
-   to upload each slice as a separate DXF file
+See [`docs/openapi.yaml`](docs/openapi.yaml) for the full endpoint reference.
 
 ## License
 
-GPL-3.0
+GPL-3.0 — see [LICENSE](LICENSE).
