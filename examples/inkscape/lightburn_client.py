@@ -80,7 +80,7 @@ def _connect(base_url, application_name):
         raise LBError(f"Pairing failed: HTTP {exc.code} {exc.reason}")
     except urllib.error.URLError as exc:
         raise LBError(f"Cannot reach the app at {base_url}. Is LightBurn / "
-                      f"MillMage running with the REST API enabled? ({exc.reason})")
+                      f"MillMage open? ({exc.reason})")
     if not secret:
         raise LBError("Server approved but returned no secret.")
     return secret

@@ -1,7 +1,9 @@
 # Getting started
 
-The LightBurn / MillMage REST API is a local HTTP API served at
-`http://localhost:19522` (default port). This guide covers pairing to obtain a
+The LightBurn / MillMage REST API is a local HTTP API served on loopback —
+default port **19520** for LightBurn and **19521** for MillMage (both
+overridable in the app's Settings). The API listens whenever the app is open.
+The examples below use 19520. This guide covers pairing to obtain a
 shared secret and deriving the Bearer token every authenticated request needs.
 
 The full endpoint reference is [`openapi.yaml`](openapi.yaml) (render it with
@@ -18,7 +20,7 @@ Send your app name and the [capabilities](capabilities.md) you need:
 
 ```http
 POST /api/connect HTTP/1.1
-Host: localhost:19522
+Host: localhost:19520
 Content-Type: application/json
 
 { "application_name": "My Tool", "capabilities": ["state", "upload"] }
@@ -63,7 +65,7 @@ Pass the token as a Bearer credential:
 import urllib.request
 
 req = urllib.request.Request(
-    "http://localhost:19522/api/status",
+    "http://localhost:19520/api/status",
     headers={"Authorization": f"Bearer {bearer_token(secret)}"},
 )
 print(urllib.request.urlopen(req).read())

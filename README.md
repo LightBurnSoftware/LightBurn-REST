@@ -20,7 +20,7 @@ read-only project and machine-state queries, and real-time state streaming.
 
 ## The API at a glance
 
-- **Transport:** plain HTTP on `http://localhost:19522` (default port).
+- **Transport:** plain HTTP on loopback — default port 19520 (LightBurn) / 19521 (MillMage).
 - **Auth:** Bearer token = `hex(HMAC-SHA256(secret, floor(unix_time / 60)))`.
   Obtain a secret by pairing a localhost app via `POST /api/connect`.
 - **Capabilities:** a token is scoped at pairing time to any of `state`

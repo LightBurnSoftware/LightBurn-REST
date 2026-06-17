@@ -32,8 +32,14 @@ info:
       distinct secret, even for the same `application_name`.
 
 servers:
-  - url: http://localhost:19522
-    description: Local server (default port)
+  - url: http://localhost:19520
+    description: |
+      LightBurn (loopback). Default port 19520, user-overridable in Settings.
+      The API listens whenever LightBurn is open.
+  - url: http://localhost:19521
+    description: |
+      MillMage (loopback). Default port 19521, user-overridable in Settings.
+      The API listens whenever MillMage is open.
 
 security:
   - bearerAuth: []

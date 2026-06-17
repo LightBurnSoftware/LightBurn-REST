@@ -13,7 +13,8 @@ import FreeCAD
 
 
 _PARAM_PATH  = "User parameter:BaseApp/Preferences/Mod/SpurLine"
-_DEFAULT_PORT = 19522
+# LightBurn and MillMage listen on different default ports.
+_DEFAULT_PORTS = {"lightburn": 19520, "millmage": 19521}
 
 
 @dataclass
@@ -24,7 +25,7 @@ class EndpointConfig:
     Attributes
     ----------
     url : str
-        Base URL, e.g. ``http://localhost:19522``.
+        Base URL, e.g. ``http://localhost:19520``.
     token : str
         Shared secret for HMAC-SHA256 auth.  Empty if not yet authorized.
     """
@@ -37,7 +38,10 @@ class SpurLinePrefs:
     Read/write SpurLine preferences via FreeCAD's built-in param store.
     """
 
-    _PORT_KEY    = "Port"
+    _PORT_KEYS = {
+        "lightburn": "LightBurnPort",
+        "millmage":  "MillMagePort",
+    }
     _SECRET_KEYS = {
         "lightburn": "LightBurnSecret",
         "millmage":  "MillMageSecret",
@@ -59,19 +63,21 @@ class SpurLinePrefs:
         """
         self._validate_target(target)
         secret = self._params.GetString(self._SECRET_KEYS[target], "")
-        return EndpointConfig(url=self._base_url(), token=secret)
+        return EndpointConfig(url=self._base_url(target), token=secret)
 
-    def get_port(self) -> int:
-        """Return the configured localhost port (default: 19522)."""
-        return self._params.GetInt(self._PORT_KEY, _DEFAULT_PORT)
+    def get_port(self, target: str) -> int:
+        """Return the configured port (defaults: LightBurn 19520, MillMage 19521)."""
+        self._validate_target(target)
+        return self._params.GetInt(self._PORT_KEYS[target], _DEFAULT_PORTS[target])
 
-    def set_port(self, port: int):
+    def set_port(self, target: str, port: int):
         """
-        Set the localhost port.  Clears stored secrets because a
-        different port means a different server instance.
+        Set the port for ``target``.  Clears that target's stored secret
+        because a different port means a different server instance.
         """
-        self._params.SetInt(self._PORT_KEY, port)
-        self.clear_all_secrets()
+        self._validate_target(target)
+        self._params.SetInt(self._PORT_KEYS[target], port)
+        self._params.SetString(self._SECRET_KEYS[target], "")
 
     def set_secret(self, target: str, secret: str):
         """Store the shared secret obtained from ``/api/connect``."""
@@ -87,8 +93,8 @@ class SpurLinePrefs:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _base_url(self) -> str:
-        return f"http://localhost:{self.get_port()}"
+    def _base_url(self, target: str) -> str:
+        return f"http://localhost:{self.get_port(target)}"
 
     @staticmethod
     def _validate_target(target: str):

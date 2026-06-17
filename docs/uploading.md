@@ -17,7 +17,7 @@ import urllib.request
 
 data = open("design.svg", "rb").read()
 req = urllib.request.Request(
-    "http://localhost:19522/api/file/upload",
+    "http://localhost:19520/api/file/upload",
     data=data,
     method="POST",
     headers={

@@ -286,17 +286,14 @@ class SpurLineClient:
         if "timed out" in reason.lower():
             return (
                 "Connection timed out.  "
-                "Make sure the REST listener is enabled in LightBurn / MillMage "
-                "and that the host and port are correct."
+                "Make sure LightBurn / MillMage is open and the port is correct."
             )
         if "refused" in reason.lower():
             return (
                 "Connection refused.  "
-                "The REST listener does not appear to be running.  "
-                "Enable it in LightBurn / MillMage settings."
+                "LightBurn / MillMage does not appear to be open."
             )
         return (
             f"Could not connect: {reason}\n"
-            "Check that the host IP and port are correct and that "
-            "the REST listener is enabled."
+            "Check that LightBurn / MillMage is open and the port is correct."
         )
