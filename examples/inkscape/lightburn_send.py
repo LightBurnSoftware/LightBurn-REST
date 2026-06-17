@@ -14,8 +14,8 @@ import inkex
 import lightburn_client as lb
 from dedupe import dedupe, to_d
 from lightburn_common import (
-    ROLE_ATTR, PRODUCT_ATTR, WORKSPACE_ATTR, FRAME_ROLE,
-    bbox_of_points, uniform_scale, workspace_placement, aspect_mismatch,
+    ROLE_ATTR, PRODUCT_ATTR, WORKSPACE_ATTR, DEVICE_ATTR, FRAME_ROLE,
+    bbox_of_points, uniform_scale, workspace_placement, aspect_mismatch, to_mm,
 )
 
 
@@ -62,6 +62,7 @@ class LightBurnSend(inkex.EffectExtension):
         pars.add_argument("--port", type=int, default=19520)
         pars.add_argument("--dedupe", type=inkex.Boolean, default=True)
         pars.add_argument("--selected_only", type=inkex.Boolean, default=True)
+        pars.add_argument("--force", type=inkex.Boolean, default=False)  # skip device check
         pars.add_argument("--tab", default="opts")           # notebook page; unused
 
     def effect(self):
@@ -76,11 +77,14 @@ class LightBurnSend(inkex.EffectExtension):
         if self.options.dedupe:
             shapes = dedupe(shapes)
 
-        placement, scale = self._frame_mapping(shapes)
+        source = self._metadata_source()
+        placement, scale, mode = self._frame_mapping(shapes, source)
         svg_bytes = self._build_svg(shapes, styles, scale)
         base_url = f"http://localhost:{self.options.port}"
         try:
             secret = lb.ensure_secret(base_url, f"Inkscape ({self.options.app})")
+            if source is not None and not self.options.force:
+                self._check_device(base_url, secret, source)  # aborts on mismatch
             if placement is not None:
                 lb.upload(base_url, secret, svg_bytes, self._filename(),
                           position=placement, origin="bottom-left")
@@ -88,8 +92,9 @@ class LightBurnSend(inkex.EffectExtension):
                 lb.upload(base_url, secret, svg_bytes, self._filename())
         except lb.LBError as exc:
             raise inkex.AbortExtension(str(exc))
-        framed = " (positioned via the workspace frame)" if placement else ""
-        self.msg(f"Sent to {self.options.app}{framed}.")
+        note = {"frame": " (positioned via the workspace frame)",
+                "document": " (positioned via the document workspace)"}.get(mode, "")
+        self.msg(f"Sent to {self.options.app}{note}.")
 
     # -- helpers -------------------------------------------------------------
 
@@ -120,29 +125,87 @@ class LightBurnSend(inkex.EffectExtension):
                 return el
         return None
 
-    def _frame_mapping(self, design_shapes):
-        """(placement_mm, scale_mm_per_uu) from the workspace frame, or
-        (None, None) when there's no usable frame for this target."""
-        frame = self._find_frame(self.options.app.lower())
-        spec = frame.get(WORKSPACE_ATTR) if frame is not None else None
-        if not spec:
-            return (None, None)
+    def _metadata_source(self):
+        """Element carrying workspace metadata for this target, in priority
+        order: the frame element, else the document root if tagged, else None."""
+        product = self.options.app.lower()
+        frame = self._find_frame(product)
+        if frame is not None and frame.get(WORKSPACE_ATTR):
+            return frame
+        root = self.svg
+        if root.get(WORKSPACE_ATTR) and root.get(PRODUCT_ATTR) == product:
+            return root
+        return None
+
+    def _frame_mapping(self, design_shapes, source):
+        """(placement_mm, scale, mode) from the metadata source, mode in
+        {"frame", "document", None}."""
+        if source is None:
+            return (None, None, None)
+        if source.get(ROLE_ATTR) == FRAME_ROLE:
+            bbox, mode = bbox_of_points(_points(element_segments(source))), "frame"
+        else:
+            bbox, mode = self._page_bbox(), "document"
+        if bbox is None:
+            return (None, None, None)
+        placement, scale = self._map(bbox, source.get(WORKSPACE_ATTR), design_shapes)
+        return (placement, scale, mode) if placement is not None else (None, None, None)
+
+    def _check_device(self, base_url, secret, source):
+        """Abort if the listening instance's device/size differs from what this
+        document was built for. Skipped when --force is set."""
+        stored_dev = source.get(DEVICE_ATTR)
+        stored_ws = source.get(WORKSPACE_ATTR)
+        project = lb.get_project(base_url, secret)
+        live_dev = project.get("device", {}).get("name", "")
+        ws = project.get("workspace", {}).get("workpiece_size", {})
+        unit = project.get("units", {}).get("distance", "mm")
+        try:
+            live_ws = f"{to_mm(float(ws['x']), unit):g}x{to_mm(float(ws['y']), unit):g}"
+        except (KeyError, TypeError, ValueError):
+            live_ws = ""
+        dev_bad = stored_dev and live_dev and stored_dev != live_dev
+        ws_bad = stored_ws and live_ws and stored_ws != live_ws
+        if dev_bad or ws_bad:
+            raise inkex.AbortExtension(
+                f"This document targets {self._describe(stored_dev, stored_ws)}, but "
+                f"the listening {self.options.app} instance is "
+                f"{self._describe(live_dev, live_ws)}. Switch to the right instance, "
+                f"or re-run with 'Send anyway' ticked.")
+
+    @staticmethod
+    def _describe(device, workspace):
+        """Human label for a target: name + size, whichever is known."""
+        if device and workspace:
+            return f"'{device}' ({workspace} mm)"
+        if workspace:
+            return f"{workspace} mm"
+        return f"'{device}'" if device else "an unknown workspace"
+
+    def _map(self, frame_bbox, spec, design_shapes):
+        """(placement_mm, scale) mapping the design bbox into the workspace, or
+        (None, None) when the inputs aren't usable."""
         try:
             w_mm, h_mm = (float(v) for v in spec.split("x"))
-        except ValueError:
+        except (ValueError, AttributeError):
             return (None, None)
-
-        frame_bbox = bbox_of_points(_points(element_segments(frame)))
         design_pts = [p for segs in design_shapes for p in _points(segs)]
         if not design_pts or frame_bbox[2] == 0:
             return (None, None)
         design_bbox = bbox_of_points(design_pts)
-
         scale = uniform_scale(w_mm, frame_bbox[2])
         if aspect_mismatch((w_mm, h_mm), (frame_bbox[2], frame_bbox[3])) > 0.02:
-            self.msg("Note: the frame's aspect doesn't match the machine; using "
+            self.msg("Note: the workspace aspect doesn't match the machine; using "
                      "its width for a uniform scale (no distortion).")
         return (workspace_placement(frame_bbox, design_bbox, scale), scale)
+
+    def _page_bbox(self):
+        """Page rectangle (left, top, width, height) in user units, from viewBox."""
+        vb = self.svg.get("viewBox")
+        if not vb:
+            return None
+        n = [float(v) for v in vb.replace(",", " ").split()]
+        return tuple(n[:4]) if len(n) == 4 else None
 
     def _build_svg(self, shapes, styles, scale=None):
         root = self.svg

@@ -5,8 +5,10 @@ Inkscape extensions that talk to LightBurn / MillMage over the
 send your drawing into it — de-duplicating coincident edges so shared cut lines
 aren't cut twice.
 
-Two commands appear under **Extensions → LightBurn / MillMage**:
+Three commands appear under **Extensions → LightBurn / MillMage**:
 
+- **Set document to … workspace** — sizes the current document to the machine's
+  workspace (see [Document size](#document-size)).
 - **Draw … workspace frame** — fetches the machine's workspace size and draws it
   as a dotted, brand-coloured background rectangle (see [Workspace frame](#workspace-frame)).
 - **Send to …** — uploads the drawing.
@@ -16,9 +18,9 @@ Two commands appear under **Extensions → LightBurn / MillMage**:
 1. Collects the selected shapes (or the whole document).
 2. **De-duplicates exact-coincident line segments** — when two shapes share an
    edge, only the first keeps it; the laser cuts that edge once.
-3. If a workspace frame is present, maps the geometry into the workspace (scale
-   + position) so it lands where you placed it. Otherwise it drops at the view
-   centre at native size.
+3. Positions the geometry into the workspace, in priority order: a **workspace
+   frame** if present, else a **document sized to the workspace**, else it drops
+   at the view centre at native size.
 4. Uploads the result as SVG via `POST /api/file/upload`. The open document is
    never modified.
 
@@ -61,10 +63,10 @@ mkdir -p "$dst"
 cp examples/inkscape/*.inx examples/inkscape/*.py "$dst"
 ```
 
-This installs the four `.inx` files plus `lightburn_send.py`,
-`lightburn_frame.py`, `lightburn_client.py`, `lightburn_common.py`, and
-`dedupe.py`. (If you're editing the code, symlink the folder instead so changes
-are picked up: `ln -s "$PWD/examples/inkscape" "$dst"`.)
+This installs the six `.inx` files plus the Python modules `lightburn_send.py`,
+`lightburn_frame.py`, `lightburn_newdoc.py`, `lightburn_client.py`,
+`lightburn_common.py`, and `dedupe.py`. (If you're editing the code, symlink the
+folder instead so changes are picked up: `ln -s "$PWD/examples/inkscape" "$dst"`.)
 
 **3. Restart Inkscape.** The commands appear under **Extensions → LightBurn /
 MillMage**.
@@ -88,6 +90,18 @@ tab. Other options: **De-duplicate shared segments** and **Selection only**
 > and **upload** (send files). If you paired an earlier build that only asked
 > for `upload`, the next run re-pairs automatically.
 
+## Document size
+
+Run **Set document to … workspace** on a fresh, blank document to size its page
+to the machine's workspace at **1 mm = 1 user unit**. Drawing at real size then
+sends at real size. (Inkscape extensions act on the open document and can't open
+a new window — make the new document first, then run this.)
+
+The command also tags the document (a namespaced attribute on the root, plus the
+workspace size in mm), so **Send positions your work relative to the page edges**
+— no frame needed. Add a frame too if you want a movable workspace that isn't the
+whole page.
+
 ## Workspace frame
 
 Run **Draw … workspace frame** to fetch the machine's workspace size and drop a
@@ -104,6 +118,17 @@ the canvas. It's a guide — never sent.
   colour) and its workspace size in mm, so it's re-found instantly after saving
   and the Send path needs no extra API call. Re-running the command refreshes an
   existing frame rather than adding another.
+
+## Device safety check
+
+When you size a document or draw a frame, the **device profile name** is
+recorded alongside the workspace size. On Send, the plugin checks the listening
+instance's device and workspace against what the document was built for. If they
+differ — e.g. focus switched to a different machine profile — Send **aborts**
+and tells you both the expected and the live device/size, so you don't scale a
+design to the wrong machine. Switch back to the right instance, or tick **Send
+anyway** on the Advanced tab to override. (Inkscape can't show a mid-run
+prompt, hence the checkbox.)
 
 ## Requirements & testing
 

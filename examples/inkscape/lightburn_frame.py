@@ -16,12 +16,9 @@ import inkex
 
 import lightburn_client as lb
 from lightburn_common import (
-    ROLE_ATTR, PRODUCT_ATTR, WORKSPACE_ATTR, FRAME_ROLE, PRODUCT_COLORS,
+    ROLE_ATTR, PRODUCT_ATTR, WORKSPACE_ATTR, DEVICE_ATTR, FRAME_ROLE,
+    PRODUCT_COLORS, to_mm,
 )
-
-
-def _to_mm(value, unit):
-    return value * 25.4 if unit in ("in", "inch", "inches") else value
 
 
 class DrawWorkspaceFrame(inkex.EffectExtension):
@@ -43,19 +40,22 @@ class DrawWorkspaceFrame(inkex.EffectExtension):
         try:
             ws = project["workspace"]["workpiece_size"]
             unit = project.get("units", {}).get("distance", "mm")
-            w_mm = _to_mm(float(ws["x"]), unit)
-            h_mm = _to_mm(float(ws["y"]), unit)
+            w_mm = to_mm(float(ws["x"]), unit)
+            h_mm = to_mm(float(ws["y"]), unit)
         except (KeyError, TypeError, ValueError):
             raise inkex.AbortExtension("Could not read workspace size from the app.")
+        device = project.get("device", {}).get("name", "")
 
         existing = self._find_frame(product)
         if existing is not None:
             existing.set(WORKSPACE_ATTR, f"{w_mm:g}x{h_mm:g}")
+            if device:
+                existing.set(DEVICE_ATTR, device)
             self.msg(f"{self.options.app} workspace frame refreshed "
                      f"({w_mm:g} x {h_mm:g} mm). Move or resize it to position designs.")
             return
 
-        self._create_frame(product, w_mm, h_mm)
+        self._create_frame(product, w_mm, h_mm, device)
         self.msg(f"Drew {self.options.app} workspace frame ({w_mm:g} x {h_mm:g} mm). "
                  f"Move or resize it to position your designs, then Send.")
 
@@ -67,7 +67,7 @@ class DrawWorkspaceFrame(inkex.EffectExtension):
                 return el
         return None
 
-    def _create_frame(self, product, w_mm, h_mm):
+    def _create_frame(self, product, w_mm, h_mm, device=""):
         uu = self.svg.unittouu
         rect = inkex.Rectangle(
             x="0", y="0",
@@ -84,6 +84,8 @@ class DrawWorkspaceFrame(inkex.EffectExtension):
         rect.set(ROLE_ATTR, FRAME_ROLE)
         rect.set(PRODUCT_ATTR, product)
         rect.set(WORKSPACE_ATTR, f"{w_mm:g}x{h_mm:g}")
+        if device:
+            rect.set(DEVICE_ATTR, device)
         rect.set("inkscape:label", f"{self.options.app} workspace")
         rect.set("id", f"lightburn-frame-{product}")
         self.svg.insert(0, rect)   # background (drawn first → behind designs)

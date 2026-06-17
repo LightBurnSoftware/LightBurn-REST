@@ -18,10 +18,16 @@ NS = "https://lightburnsoftware.com/inkscape"
 ROLE_ATTR      = f"{{{NS}}}role"        # "workspace-frame"
 PRODUCT_ATTR   = f"{{{NS}}}product"     # "lightburn" | "millmage"
 WORKSPACE_ATTR = f"{{{NS}}}workspace"   # "<width>x<height>" in mm
+DEVICE_ATTR    = f"{{{NS}}}device"      # device profile name at creation time
 FRAME_ROLE = "workspace-frame"
 
 # Approximate brand colours for the frame stroke (tweak to taste).
 PRODUCT_COLORS = {"lightburn": "#d40000", "millmage": "#7b16ff"}
+
+
+def to_mm(value, unit):
+    """Convert a distance in the app's display unit to millimetres."""
+    return value * 25.4 if unit in ("in", "inch", "inches") else value
 
 
 def bbox_of_points(points):
@@ -76,4 +82,5 @@ if __name__ == "__main__":
     # A square frame (1.0) for a 2:1 machine (2.0): |1-2|/2 = 0.5 relative.
     assert abs(aspect_mismatch((200, 100), (100, 100)) - 0.5) < 1e-9
     assert aspect_mismatch((200, 100), (200, 100)) == 0.0
-    print("ok: scale, placement, aspect-mismatch")
+    assert to_mm(2, "in") == 50.8 and to_mm(5, "mm") == 5
+    print("ok: scale, placement, aspect-mismatch, to_mm")

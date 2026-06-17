@@ -10,7 +10,9 @@
              gui-text="Selection only (uncheck to send the whole document)">true</param>
     </page>
     <page name="advanced" gui-text="Advanced">
-      <label>Only change this if you have set a custom REST API port in MillMage.</label>
+      <param name="force" type="bool"
+             gui-text="Send anyway (skip device/size check)">false</param>
+      <label>Only change the port if you have set a custom REST API port in MillMage.</label>
       <param name="port" type="int" min="1" max="65535" gui-text="Port">19521</param>
     </page>
   </param>

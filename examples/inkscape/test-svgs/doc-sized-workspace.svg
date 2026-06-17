@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:lb="https://lightburnsoftware.com/inkscape"
+     lb:workspace="200x200" lb:product="lightburn"
+     width="200mm" height="200mm" viewBox="0 0 200 200">
+  <!-- Document tagged as a 200x200 mm LightBurn workspace (no frame element).
+       Square 20x20 near the top-left; Send should position via the page. -->
+  <rect x="10" y="10" width="20" height="20" style="fill:none;stroke:#000000"/>
+</svg>
