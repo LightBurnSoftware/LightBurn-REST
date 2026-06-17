@@ -148,3 +148,10 @@ prompt, hence the checkbox.)
   edge, and two triangles sharing a diagonal. Open one in Inkscape and send it —
   the shared edge should be dropped from the second shape, and each shape's
   colour preserved.
+
+## License
+
+GPL-3.0 — see [LICENSE](LICENSE). The extension builds on Inkscape's `inkex`
+module, which is GPL (v2-or-later), so this example is GPL too. The non-`inkex`
+modules (`dedupe.py`, `lightburn_common.py`, `lightburn_client.py`) are pure
+standard-library and independent of `inkex`.
