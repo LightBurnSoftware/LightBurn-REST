@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <name>Send to LightBurn</name>
+  <id>com.lightburnsoftware.send_lightburn</id>
+  <param name="app" type="string" gui-hidden="true">LightBurn</param>
+  <param name="tab" type="notebook">
+    <page name="opts" gui-text="Options">
+      <param name="dedupe" type="bool" gui-text="De-duplicate shared segments">true</param>
+      <param name="selected_only" type="bool"
+             gui-text="Selection only (uncheck to send the whole document)">true</param>
+    </page>
+    <page name="advanced" gui-text="Advanced">
+      <label>Only change this if you have set a custom REST API port in LightBurn.</label>
+      <param name="port" type="int" min="1" max="65535" gui-text="Port">19520</param>
+    </page>
+  </param>
+  <effect needs-live-preview="false">
+    <object-type>all</object-type>
+    <effects-menu>
+      <submenu name="LightBurn / MillMage"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command location="inx" interpreter="python">lightburn_send.py</command>
+  </script>
+</inkscape-extension>

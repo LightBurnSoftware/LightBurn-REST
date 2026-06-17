@@ -15,7 +15,7 @@ import time
 import urllib.error
 import urllib.request
 
-APPLICATION_NAME = "Inkscape (LightBurn Send)"
+APPLICATION_NAME = "Inkscape"
 CAPABILITIES = ["upload"]
 
 _CONNECT_TIMEOUT = 35   # 30 s consent dialog + buffer
@@ -50,20 +50,20 @@ def _save(secrets):
 
 # --- pairing + upload -------------------------------------------------------
 
-def ensure_secret(base_url):
+def ensure_secret(base_url, application_name=APPLICATION_NAME):
     """Return a stored secret for base_url, pairing via /api/connect if none."""
     secrets = _load()
     if secrets.get(base_url):
         return secrets[base_url]
-    secret = _connect(base_url)
+    secret = _connect(base_url, application_name)
     secrets[base_url] = secret
     _save(secrets)
     return secret
 
 
-def _connect(base_url):
+def _connect(base_url, application_name):
     body = json.dumps({
-        "application_name": APPLICATION_NAME,
+        "application_name": application_name,
         "capabilities": CAPABILITIES,
     }).encode()
     req = urllib.request.Request(

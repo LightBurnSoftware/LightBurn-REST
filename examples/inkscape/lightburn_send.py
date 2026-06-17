@@ -45,9 +45,11 @@ def element_segments(elem):
 class LightBurnSend(inkex.EffectExtension):
 
     def add_arguments(self, pars):
-        pars.add_argument("--port", type=int, default=19522)
+        pars.add_argument("--app", default="LightBurn")     # target name (hidden in .inx)
+        pars.add_argument("--port", type=int, default=19520)
         pars.add_argument("--dedupe", type=inkex.Boolean, default=True)
         pars.add_argument("--selected_only", type=inkex.Boolean, default=True)
+        pars.add_argument("--tab", default="opts")           # notebook page; unused
 
     def effect(self):
         elems = self._target_elements()
@@ -64,11 +66,11 @@ class LightBurnSend(inkex.EffectExtension):
         svg_bytes = self._build_svg(shapes, styles)
         base_url = f"http://localhost:{self.options.port}"
         try:
-            secret = lb.ensure_secret(base_url)
+            secret = lb.ensure_secret(base_url, f"Inkscape ({self.options.app})")
             lb.upload(base_url, secret, svg_bytes, self._filename())
         except lb.LBError as exc:
             raise inkex.AbortExtension(str(exc))
-        self.msg("Sent to LightBurn / MillMage.")
+        self.msg(f"Sent to {self.options.app}.")
 
     # -- helpers -------------------------------------------------------------
 

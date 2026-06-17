@@ -33,19 +33,23 @@ directory, then restart Inkscape:
 ln -s "$PWD" ~/.config/inkscape/extensions/lightburn-send
 ```
 
-Files: `lightburn_send.inx`, `lightburn_send.py`, `lightburn_client.py`,
-`dedupe.py` (keep them together).
+Files (keep them together): `lightburn_send_lightburn.inx`,
+`lightburn_send_millmage.inx`, `lightburn_send.py`, `lightburn_client.py`,
+`dedupe.py`.
 
 ## Use
 
 1. In LightBurn / MillMage, make sure the REST API is enabled.
-2. In Inkscape: **Extensions → LightBurn → Send to LightBurn / MillMage**.
-3. The first send triggers a consent dialog in LightBurn / MillMage — approve
-   it. The shared secret is stored under
-   `…/lightburn-rest/inkscape-secrets.json` and reused on later sends.
+2. In Inkscape: **Extensions → LightBurn / MillMage → Send to LightBurn**
+   (or **Send to MillMage**).
+3. The first send triggers a consent dialog in the app — approve it. The shared
+   secret is stored under `…/lightburn-rest/inkscape-secrets.json` and reused on
+   later sends (LightBurn and MillMage each get their own).
 
-Options: **Port** (default 19522), **De-duplicate shared segments**, and
-**Selection only** (uncheck to send the whole document).
+The correct port is used automatically — **19520** for LightBurn, **19521** for
+MillMage. If you've customised the REST API port, override it on the **Advanced**
+tab. Other options: **De-duplicate shared segments** and **Selection only**
+(uncheck to send the whole document).
 
 ## Requirements & testing
 
