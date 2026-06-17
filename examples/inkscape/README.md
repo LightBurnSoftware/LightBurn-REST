@@ -17,29 +17,51 @@ straight line segments by endpoint, direction-independent. **Curves always pass
 through unchanged** — coincident curves and partial/collinear overlaps are a
 known limitation, to be revisited with a geometric union if needed.
 
+> **Demo extension.** This is an early demo, installed by hand (steps below) —
+> not through an addon manager. More features are planned.
+
 ## Install
 
-Copy (or symlink) the four files into your Inkscape **user extensions**
-directory, then restart Inkscape:
+The extension is five files that must stay together. Copy them into a new
+`lightburn-send` folder inside your Inkscape **user extensions** directory,
+then restart Inkscape.
 
-| OS | Extensions directory |
-|----|----------------------|
+**1. Find your user extensions directory** (also shown in Inkscape under
+**Edit → Preferences → System → User extensions**):
+
+| OS | Path |
+|----|------|
 | Windows | `%APPDATA%\inkscape\extensions` |
 | Linux | `~/.config/inkscape/extensions` |
 | macOS | `~/Library/Application Support/org.inkscape.Inkscape/config/inkscape/extensions` |
 
-```bash
-# Linux/macOS — symlink the folder (Inkscape scans subdirectories)
-ln -s "$PWD" ~/.config/inkscape/extensions/lightburn-send
+**2. Copy the files there.** From the repository root:
+
+Windows (PowerShell):
+```powershell
+$dst = "$env:APPDATA\inkscape\extensions\lightburn-send"
+New-Item -ItemType Directory -Force $dst | Out-Null
+Copy-Item examples\inkscape\*.inx, examples\inkscape\*.py $dst
 ```
 
-Files (keep them together): `lightburn_send_lightburn.inx`,
-`lightburn_send_millmage.inx`, `lightburn_send.py`, `lightburn_client.py`,
-`dedupe.py`.
+Linux / macOS:
+```bash
+dst=~/.config/inkscape/extensions/lightburn-send
+mkdir -p "$dst"
+cp examples/inkscape/*.inx examples/inkscape/*.py "$dst"
+```
+
+This installs the two `.inx` files plus `lightburn_send.py`,
+`lightburn_client.py`, and `dedupe.py`. (If you're editing the code, symlink the
+folder instead so changes are picked up: `ln -s "$PWD/examples/inkscape" "$dst"`.)
+
+**3. Restart Inkscape.** The commands appear under **Extensions → LightBurn /
+MillMage**.
 
 ## Use
 
-1. In LightBurn / MillMage, make sure the REST API is enabled.
+1. Make sure LightBurn / MillMage is **open** (the API listens whenever the app
+   is running).
 2. In Inkscape: **Extensions → LightBurn / MillMage → Send to LightBurn**
    (or **Send to MillMage**).
 3. The first send triggers a consent dialog in the app — approve it. The shared

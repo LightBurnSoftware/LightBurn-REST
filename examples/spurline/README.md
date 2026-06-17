@@ -16,27 +16,52 @@ directly to **LightBurn** or **MillMage** for laser cutting or CNC milling.
 - FreeCAD 1.0+
 - The **FCGear** (freecad.gears) addon — install via Tools → Addon Manager
 
-## Installation (development)
+## Install
 
-Symlink this folder into FreeCAD's user `Mod/` directory so edits take
-effect on the next FreeCAD restart without copying files:
+> **Demo workbench.** This is an early demo, installed by hand (steps below) —
+> not through the FreeCAD Addon Manager. More features are planned.
 
-**Linux / macOS**
+SpurLine must end up as a `SpurLine` folder inside FreeCAD's user `Mod`
+directory. Pick **one** of the two methods below, then restart FreeCAD.
+
+**1. Find your FreeCAD `Mod` directory:**
+
+| OS | Path |
+|----|------|
+| Windows | `%APPDATA%\FreeCAD\Mod` |
+| Linux | `~/.local/share/FreeCAD/Mod` |
+| macOS | `~/Library/Application Support/FreeCAD/Mod` |
+
+Not sure? In FreeCAD open the **Python console** (View → Panels → Python console)
+and run `import FreeCAD; print(FreeCAD.getUserAppDataDir())` — `Mod` is inside
+that folder (create the `Mod` folder if it isn't there).
+
+**2a. Symlink it** (best if you'll edit the code — changes apply on the next
+restart). Run from the repository root:
+
+Linux / macOS:
 ```bash
-ln -s /path/to/lightburn-rest/examples/spurline ~/.local/share/FreeCAD/Mod/SpurLine
+ln -s "$PWD/examples/spurline" ~/.local/share/FreeCAD/Mod/SpurLine
 ```
-
-**Windows** (run as Administrator in PowerShell)
+Windows (PowerShell, **as Administrator**):
 ```powershell
 New-Item -ItemType SymbolicLink `
-  -Path "$env:APPDATA\FreeCAD\v1-1\Mod\SpurLine" `
-  -Target "C:\path\to\lightburn-rest\examples\spurline"
+  -Path "$env:APPDATA\FreeCAD\Mod\SpurLine" `
+  -Target "$PWD\examples\spurline"
 ```
 
-> SpurLine lives under `examples/` in the `lightburn-rest` monorepo, so it
-> installs by symlink (above) rather than via the FreeCAD Addon Manager.
+**2b. Or just copy it** into `Mod\SpurLine`. Run from the repository root:
 
-Then restart FreeCAD and select **SpurLine** from the workbench dropdown.
+Linux / macOS:
+```bash
+cp -r examples/spurline ~/.local/share/FreeCAD/Mod/SpurLine
+```
+Windows (PowerShell):
+```powershell
+Copy-Item examples\spurline "$env:APPDATA\FreeCAD\Mod\SpurLine" -Recurse
+```
+
+**3. Restart FreeCAD** and select **SpurLine** from the workbench dropdown.
 
 ## Configuration
 
@@ -51,8 +76,9 @@ secret.  If your stored secret becomes invalid (e.g. the server was
 reinstalled), use **SpurLine > Reset authorizations** from the menu to
 clear it, then click Send again to re-authorize.
 
-The default port is **19522**.  If LightBurn or MillMage is configured to
-listen on a different port, use **SpurLine > Set port...** to change it.
+The default ports are **19520** (LightBurn) and **19521** (MillMage).  If you
+have changed the port in the app's Settings, use **SpurLine > Set port...** to
+match it (you pick which application).
 
 ## Project structure
 
