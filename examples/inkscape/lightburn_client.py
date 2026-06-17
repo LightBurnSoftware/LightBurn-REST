@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 
 APPLICATION_NAME = "Inkscape"
-CAPABILITIES = ["upload"]
+CAPABILITIES = ["project", "upload"]   # project: read workspace; upload: send files
 
 _CONNECT_TIMEOUT = 35   # 30 s consent dialog + buffer
 _UPLOAD_TIMEOUT = 10
@@ -91,24 +91,58 @@ def _token(secret):
     return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
 
 
-def upload(base_url, secret, data, filename):
-    """POST raw bytes to /api/file/upload. Returns the parsed 202 body."""
+def _drop_secret(base_url):
+    """Forget a stale secret so the next run re-pairs cleanly."""
+    secrets = _load()
+    secrets.pop(base_url, None)
+    _save(secrets)
+
+
+def get_project(base_url, secret):
+    """GET /api/project — returns the parsed project metadata (workspace, units)."""
     req = urllib.request.Request(
-        base_url + "/api/file/upload", data=data, method="POST",
-        headers={
-            "Authorization": f"Bearer {_token(secret)}",
-            "Content-Type": "application/octet-stream",
-            "X-Filename": filename,
-        },
+        base_url + "/api/project", method="GET",
+        headers={"Authorization": f"Bearer {_token(secret)}"},
     )
     try:
         with urllib.request.urlopen(req, timeout=_UPLOAD_TIMEOUT) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
-            secrets = _load()                 # drop the stale secret so the
-            secrets.pop(base_url, None)       # next run re-pairs cleanly
-            _save(secrets)
+            _drop_secret(base_url)
+            raise LBError("Authorization failed (stored secret may be stale, or "
+                          "lacks the 'project' scope). Run again to re-pair.")
+        raise LBError(f"Could not read project: HTTP {exc.code} {exc.reason}")
+    except urllib.error.URLError as exc:
+        raise LBError(f"Cannot reach the app at {base_url}. Is LightBurn / "
+                      f"MillMage open? ({exc.reason})")
+
+
+def upload(base_url, secret, data, filename, position=None, origin=None):
+    """POST raw bytes to /api/file/upload. Returns the parsed 202 body.
+
+    position : optional (x_mm, y_mm) workspace anchor for the import's bbox.
+    origin   : optional bbox corner placed at position (e.g. "bottom-left").
+    """
+    headers = {
+        "Authorization": f"Bearer {_token(secret)}",
+        "Content-Type": "application/octet-stream",
+        "X-Filename": filename,
+    }
+    if position is not None:
+        headers["X-Position-X"] = f"{position[0]:g}"
+        headers["X-Position-Y"] = f"{position[1]:g}"
+        if origin:
+            headers["X-Origin"] = origin
+    req = urllib.request.Request(
+        base_url + "/api/file/upload", data=data, method="POST", headers=headers,
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_UPLOAD_TIMEOUT) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            _drop_secret(base_url)
             raise LBError("Authorization failed (stored secret may be stale). "
                           "Run again to re-pair.")
         raise LBError(f"Upload failed: HTTP {exc.code} {exc.reason}")

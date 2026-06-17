@@ -13,6 +13,19 @@ import inkex
 
 import lightburn_client as lb
 from dedupe import dedupe, to_d
+from lightburn_common import (
+    ROLE_ATTR, PRODUCT_ATTR, WORKSPACE_ATTR, FRAME_ROLE,
+    bbox_of_points, uniform_scale, workspace_placement, aspect_mismatch,
+)
+
+
+def _points(segs):
+    """Endpoint samples of a segment list, for a bounding box."""
+    pts = []
+    for s in segs:
+        pts.append(s[1])
+        pts.append(s[2])
+    return pts
 
 
 def element_segments(elem):
@@ -63,14 +76,20 @@ class LightBurnSend(inkex.EffectExtension):
         if self.options.dedupe:
             shapes = dedupe(shapes)
 
-        svg_bytes = self._build_svg(shapes, styles)
+        placement, scale = self._frame_mapping(shapes)
+        svg_bytes = self._build_svg(shapes, styles, scale)
         base_url = f"http://localhost:{self.options.port}"
         try:
             secret = lb.ensure_secret(base_url, f"Inkscape ({self.options.app})")
-            lb.upload(base_url, secret, svg_bytes, self._filename())
+            if placement is not None:
+                lb.upload(base_url, secret, svg_bytes, self._filename(),
+                          position=placement, origin="bottom-left")
+            else:
+                lb.upload(base_url, secret, svg_bytes, self._filename())
         except lb.LBError as exc:
             raise inkex.AbortExtension(str(exc))
-        self.msg(f"Sent to {self.options.app}.")
+        framed = " (positioned via the workspace frame)" if placement else ""
+        self.msg(f"Sent to {self.options.app}{framed}.")
 
     # -- helpers -------------------------------------------------------------
 
@@ -86,6 +105,8 @@ class LightBurnSend(inkex.EffectExtension):
                     continue
                 if isinstance(el, (inkex.Group, inkex.Layer)):
                     continue
+                if el.get(ROLE_ATTR) == FRAME_ROLE:
+                    continue  # the workspace frame is a guide, never sent
                 try:
                     if len(el.path):
                         out.append(el)
@@ -93,12 +114,49 @@ class LightBurnSend(inkex.EffectExtension):
                     pass
         return out
 
-    def _build_svg(self, shapes, styles):
+    def _find_frame(self, product):
+        for el in self.svg.descendants():
+            if el.get(ROLE_ATTR) == FRAME_ROLE and el.get(PRODUCT_ATTR) == product:
+                return el
+        return None
+
+    def _frame_mapping(self, design_shapes):
+        """(placement_mm, scale_mm_per_uu) from the workspace frame, or
+        (None, None) when there's no usable frame for this target."""
+        frame = self._find_frame(self.options.app.lower())
+        spec = frame.get(WORKSPACE_ATTR) if frame is not None else None
+        if not spec:
+            return (None, None)
+        try:
+            w_mm, h_mm = (float(v) for v in spec.split("x"))
+        except ValueError:
+            return (None, None)
+
+        frame_bbox = bbox_of_points(_points(element_segments(frame)))
+        design_pts = [p for segs in design_shapes for p in _points(segs)]
+        if not design_pts or frame_bbox[2] == 0:
+            return (None, None)
+        design_bbox = bbox_of_points(design_pts)
+
+        scale = uniform_scale(w_mm, frame_bbox[2])
+        if aspect_mismatch((w_mm, h_mm), (frame_bbox[2], frame_bbox[3])) > 0.02:
+            self.msg("Note: the frame's aspect doesn't match the machine; using "
+                     "its width for a uniform scale (no distortion).")
+        return (workspace_placement(frame_bbox, design_bbox, scale), scale)
+
+    def _build_svg(self, shapes, styles, scale=None):
         root = self.svg
-        attrs = " ".join(
-            f'{a}="{root.get(a)}"' for a in ("width", "height", "viewBox") if root.get(a)
-        )
-        parts = [f'<svg xmlns="http://www.w3.org/2000/svg" {attrs}>']
+        vb = root.get("viewBox")
+        if scale is not None and vb:
+            # 1 user unit -> `scale` mm, so geometry is sent at workspace size.
+            nums = [float(v) for v in vb.replace(",", " ").split()]
+            vbw, vbh = nums[2], nums[3]
+            header = f'viewBox="{vb}" width="{vbw * scale:g}mm" height="{vbh * scale:g}mm"'
+        else:
+            header = " ".join(
+                f'{a}="{root.get(a)}"' for a in ("width", "height", "viewBox") if root.get(a)
+            )
+        parts = [f'<svg xmlns="http://www.w3.org/2000/svg" {header}>']
         for segs, style in zip(shapes, styles):
             d = to_d(segs)
             if not d.strip():

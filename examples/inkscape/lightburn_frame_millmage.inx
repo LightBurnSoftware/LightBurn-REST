@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <name>Draw MillMage workspace frame</name>
+  <id>com.lightburnsoftware.frame_millmage</id>
+  <param name="app" type="string" gui-hidden="true">MillMage</param>
+  <param name="tab" type="notebook">
+    <page name="opts" gui-text="Frame">
+      <label>Fetches the workspace size from MillMage and draws a dotted guide
+frame. Move or resize it, then use "Send to MillMage" to place your designs.</label>
+    </page>
+    <page name="advanced" gui-text="Advanced">
+      <label>Only change this if you have set a custom REST API port in MillMage.</label>
+      <param name="port" type="int" min="1" max="65535" gui-text="Port">19521</param>
+    </page>
+  </param>
+  <effect needs-live-preview="false">
+    <object-type>all</object-type>
+    <effects-menu>
+      <submenu name="LightBurn / MillMage"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command location="inx" interpreter="python">lightburn_frame.py</command>
+  </script>
+</inkscape-extension>

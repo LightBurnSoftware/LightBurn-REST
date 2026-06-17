@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <name>Draw LightBurn workspace frame</name>
+  <id>com.lightburnsoftware.frame_lightburn</id>
+  <param name="app" type="string" gui-hidden="true">LightBurn</param>
+  <param name="tab" type="notebook">
+    <page name="opts" gui-text="Frame">
+      <label>Fetches the workspace size from LightBurn and draws a dotted guide
+frame. Move or resize it, then use "Send to LightBurn" to place your designs.</label>
+    </page>
+    <page name="advanced" gui-text="Advanced">
+      <label>Only change this if you have set a custom REST API port in LightBurn.</label>
+      <param name="port" type="int" min="1" max="65535" gui-text="Port">19520</param>
+    </page>
+  </param>
+  <effect needs-live-preview="false">
+    <object-type>all</object-type>
+    <effects-menu>
+      <submenu name="LightBurn / MillMage"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command location="inx" interpreter="python">lightburn_frame.py</command>
+  </script>
+</inkscape-extension>
