@@ -90,6 +90,15 @@ tab. Other options: **De-duplicate shared segments** and **Selection only**
 > and **upload** (send files). If you paired an earlier build that only asked
 > for `upload`, the next run re-pairs automatically.
 
+## Sending over the network
+
+By default everything talks to `localhost`. To drive a LightBurn / MillMage on
+**another computer**, enable network access in that app's settings, then set the
+**Host** field (IP or hostname) on the **Advanced** tab of any command. The
+first send pops the consent dialog **on the host machine** — approve it there.
+Each host gets its own stored secret. Every command (set document, draw frame,
+send) honours the Host override.
+
 ## Document size
 
 Run **Set document to … workspace** on a fresh, blank document to size its page

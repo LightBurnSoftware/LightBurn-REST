@@ -9,7 +9,9 @@
 unit). Make a new, blank document first, then run this.</label>
     </page>
     <page name="advanced" gui-text="Advanced">
-      <label>Only change this if you have set a custom REST API port in LightBurn.</label>
+      <label>To reach LightBurn on another computer, enable network access in its
+settings and set the host. Change the port only if you customised it.</label>
+      <param name="host" type="string" gui-text="Host">localhost</param>
       <param name="port" type="int" min="1" max="65535" gui-text="Port">19520</param>
     </page>
   </param>

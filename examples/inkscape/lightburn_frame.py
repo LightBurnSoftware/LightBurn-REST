@@ -25,12 +25,13 @@ class DrawWorkspaceFrame(inkex.EffectExtension):
 
     def add_arguments(self, pars):
         pars.add_argument("--app", default="LightBurn")
+        pars.add_argument("--host", default="localhost")
         pars.add_argument("--port", type=int, default=19520)
         pars.add_argument("--tab", default="opts")
 
     def effect(self):
         product = self.options.app.lower()
-        base_url = f"http://localhost:{self.options.port}"
+        base_url = f"http://{self.options.host}:{self.options.port}"
         try:
             secret = lb.ensure_secret(base_url, f"Inkscape ({self.options.app})")
             project = lb.get_project(base_url, secret)

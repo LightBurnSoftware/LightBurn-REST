@@ -59,6 +59,7 @@ class LightBurnSend(inkex.EffectExtension):
 
     def add_arguments(self, pars):
         pars.add_argument("--app", default="LightBurn")     # target name (hidden in .inx)
+        pars.add_argument("--host", default="localhost")
         pars.add_argument("--port", type=int, default=19520)
         pars.add_argument("--dedupe", type=inkex.Boolean, default=True)
         pars.add_argument("--selected_only", type=inkex.Boolean, default=True)
@@ -80,7 +81,7 @@ class LightBurnSend(inkex.EffectExtension):
         source = self._metadata_source()
         placement, scale, mode = self._frame_mapping(shapes, source)
         svg_bytes = self._build_svg(shapes, styles, scale)
-        base_url = f"http://localhost:{self.options.port}"
+        base_url = f"http://{self.options.host}:{self.options.port}"
         try:
             secret = lb.ensure_secret(base_url, f"Inkscape ({self.options.app})")
             if source is not None and not self.options.force:
