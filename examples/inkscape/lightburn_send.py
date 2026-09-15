@@ -64,9 +64,15 @@ class LightBurnSend(inkex.EffectExtension):
         pars.add_argument("--dedupe", type=inkex.Boolean, default=True)
         pars.add_argument("--selected_only", type=inkex.Boolean, default=True)
         pars.add_argument("--force", type=inkex.Boolean, default=False)  # skip device check
+        pars.add_argument("--reset_auth", type=inkex.Boolean, default=False)  # re-pair
         pars.add_argument("--tab", default="opts")           # notebook page; unused
 
     def effect(self):
+        # Before anything else, so a stale secret is cleared even if the send
+        # itself can't proceed (nothing selected, app closed, ...).
+        if self.options.reset_auth:
+            self._reset_auth()
+
         elems = self._target_elements()
         if not elems:
             raise inkex.AbortExtension("Nothing to send — draw or select some shapes first.")
@@ -98,6 +104,10 @@ class LightBurnSend(inkex.EffectExtension):
         self.msg(f"Sent to {self.options.app}{note}.")
 
     # -- helpers -------------------------------------------------------------
+
+    def _reset_auth(self):
+        base_url = f"http://{self.options.host}:{self.options.port}"
+        self.msg(lb.forget_secret_message(base_url, self.options.app))
 
     def _target_elements(self):
         if self.options.selected_only and len(self.svg.selection):

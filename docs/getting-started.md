@@ -1,10 +1,12 @@
 # Getting started
 
-The LightBurn / MillMage REST API is a local HTTP API served on loopback —
-default port **19520** for LightBurn and **19521** for MillMage (both
-overridable in the app's Settings). The API listens whenever the app is open.
-The examples below use 19520. This guide covers pairing to obtain a
-shared secret and deriving the Bearer token every authenticated request needs.
+The LightBurn / MillMage REST API is an HTTP API served on loopback — port
+**19520** for LightBurn and **19521** for MillMage. These are fixed per
+product and cannot be changed. The API listens whenever the app is open, and
+can be opened to the network via **Settings → Extensions → Allow API Access
+From Network**. The examples below use loopback. This guide covers pairing to
+obtain a shared secret and deriving the Bearer token every authenticated
+request needs.
 
 The full endpoint reference is [`openapi.yaml`](openapi.yaml) (render it with
 [`index.html`](index.html) or any OpenAPI viewer).
@@ -15,6 +17,11 @@ Every authenticated endpoint needs a Bearer token derived from a **shared
 secret**, obtained by pairing a local application via `POST /api/connect`
 (localhost only — shows a consent dialog in the desktop app and returns a
 secret on approval).
+
+`/api/connect` is localhost-only even when network access is enabled, so a
+client that will run on another machine still has to be paired on the machine
+running LightBurn. Once issued, the secret works from anywhere the listener is
+reachable.
 
 Send your app name and the [capabilities](capabilities.md) you need:
 

@@ -34,11 +34,17 @@ info:
 servers:
   - url: http://localhost:19520
     description: |
-      LightBurn (loopback). Default port 19520, user-overridable in Settings.
+      LightBurn. Port 19520, fixed per product — not user-overridable. Binds
+      loopback by default; enable "Allow API Access From Network" in
+      Settings > Extensions to accept connections on any interface.
+      `POST /api/connect` stays localhost-only either way.
       The API listens whenever LightBurn is open.
   - url: http://localhost:19521
     description: |
-      MillMage (loopback). Default port 19521, user-overridable in Settings.
+      MillMage. Port 19521, fixed per product — not user-overridable. Binds
+      loopback by default; enable "Allow API Access From Network" in
+      Settings > Extensions to accept connections on any interface.
+      `POST /api/connect` stays localhost-only either way.
       The API listens whenever MillMage is open.
 
 security:

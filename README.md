@@ -63,9 +63,12 @@ Please review `SAFETY.md` before implementing machine-related workflows.
 
 ## The API at a glance
 
-- **Transport:** plain HTTP on loopback — default port 19520 (LightBurn) / 19521 (MillMage).
+- **Transport:** plain HTTP. Port 19520 (LightBurn) / 19521 (MillMage), fixed
+  per product. Loopback by default; can be opened to the local network in the
+  application's settings.
 - **Auth:** Bearer token = `hex(HMAC-SHA256(secret, floor(unix_time / 60)))`.
-  Obtain a secret by pairing a localhost app via `POST /api/connect`.
+  Obtain a secret by pairing a localhost app via `POST /api/connect`. Pairing
+  is localhost-only even when network access is enabled.
 - **Capabilities:** a token is scoped at pairing time to any of `state`
   (read-only machine/job state), `project` (read-only project data), and
   `upload` (submit files for import).

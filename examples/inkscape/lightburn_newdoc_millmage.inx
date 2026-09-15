@@ -13,6 +13,11 @@ unit). Make a new, blank document first, then run this.</label>
 settings and set the host. Change the port only if you customised it.</label>
       <param name="host" type="string" gui-text="Host">localhost</param>
       <param name="port" type="int" min="1" max="65535" gui-text="Port">19521</param>
+      <param name="reset_auth" type="bool"
+             gui-text="Reset authorization (pair again on this run)">false</param>
+      <label>Tick this if the connection fails with an authorization error. It
+forgets the secret saved for this host and asks MillMage for a new consent
+dialog. Other hosts keep their own authorization.</label>
     </page>
   </param>
   <effect needs-live-preview="false">

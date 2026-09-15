@@ -315,16 +315,21 @@ class GearPanel:
             # --- Step 4: send ---
             self.lbl_info.setText(f"Uploading to {target.title()}...")
             self.form.repaint()
-            result = client.send(endpoint, dxf_bytes, fmt="dxf")
+            result, endpoint = self._send_with_reauth(
+                target, prefs, client, endpoint, dxf_bytes
+            )
+            if result is None:
+                return                      # re-pairing failed; already reported
 
             if result.success:
                 self.lbl_info.setText(f"File accepted by {target.title()} (importing...)")
             elif result.is_auth_error:
                 self._show_error(
                     "Authentication failed",
-                    f"The stored secret was rejected by {target.title()}.\n\n"
-                    "Use SpurLine > Reset authorizations from the menu,\n"
-                    "then try sending again.",
+                    f"{target.title()} rejected the secret again after "
+                    "re-authorizing.\n\n"
+                    "Check that the consent request was approved, or use\n"
+                    "SpurLine > Reset authorizations and try again.",
                 )
             else:
                 self._show_error(
@@ -356,6 +361,32 @@ class GearPanel:
             return None
 
         return endpoint
+
+    def _send_with_reauth(self, target, prefs, client, endpoint, data, fmt="dxf"):
+        """
+        Send, and if the app rejects the stored secret, drop it, pair again
+        and retry once.
+
+        A secret can stop being valid without the user doing anything wrong —
+        the app reinstalled, the pairing revoked, the secret half-written. The
+        manual "Reset authorizations" command covers that, but a rejected
+        secret is never worth keeping, so clear it here too.
+
+        Returns ``(result, endpoint)``. ``result`` is ``None`` when re-pairing
+        failed and the error has already been shown; ``endpoint`` is the
+        refreshed one after a successful re-pair, so repeated sends keep using
+        a live token.
+        """
+        result = client.send(endpoint, data, fmt=fmt)
+        if not result.is_auth_error:
+            return result, endpoint
+
+        prefs.clear_secret(target)
+        # Token now empty, so _ensure_connected pairs again and narrates it.
+        refreshed = self._ensure_connected(target, prefs, client)
+        if refreshed is None:
+            return None, endpoint     # _ensure_connected already reported it
+        return client.send(refreshed, data, fmt=fmt), refreshed
 
     # ------------------------------------------------------------------
     # Dialog helpers

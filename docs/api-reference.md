@@ -6,7 +6,9 @@ page is a human-friendly index grouped by capability.
 
 All endpoints except `GET /` and `POST /api/connect` require a Bearer token
 (see [Authentication](authentication.md)). Base URL: `http://localhost:19520`
-(LightBurn) or `19521` (MillMage).
+(LightBurn) or `19521` (MillMage) — these ports are fixed per product. Replace
+`localhost` with the host's address when the application has network access
+enabled; `POST /api/connect` remains localhost-only regardless.
 
 ## Pairing & service (no auth)
 
@@ -49,8 +51,10 @@ placement headers (`X-Position-X/Y`, `X-Origin`, `X-Group-Shapes`).
 
 ## Conventions
 
-- **Auth:** `Authorization: Bearer <token>`; missing/invalid → `401`. Calling an
-  endpoint outside your granted capability → `403`.
+- **Auth:** `Authorization: Bearer <token>`. Every authorization failure returns
+  a bare `401` — missing, invalid, expired, revoked, outside your granted
+  capability, or from off-machine while network access is off. The reasons are
+  deliberately indistinguishable; don't branch on them.
 - **Units:** distance and speed values use the user's current display units;
   read them from `GET /api/units` or `GET /api/project`.
 - **Async import:** uploads return `202 Accepted` immediately; the result

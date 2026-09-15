@@ -31,6 +31,7 @@ class ExtractPanel:
         self._preview_names = []
         self._last_items = None  # cached list of (face, copies)
         self._plane_name = None  # cutting plane doc object name
+        self._ms_step = 0        # multi-slice progress counter
 
         self.form = QtWidgets.QWidget()
         self.form.setWindowTitle("Extract Profiles")
@@ -155,6 +156,12 @@ class ExtractPanel:
         self.lbl_ms_info = QtWidgets.QLabel("")
         self.lbl_ms_info.setAlignment(QtCore.Qt.AlignCenter)
         parent_layout.addWidget(self.lbl_ms_info)
+
+        # Send progress — hidden until a send is running.
+        self.pbar_ms = QtWidgets.QProgressBar()
+        self.pbar_ms.setTextVisible(False)
+        self.pbar_ms.setVisible(False)
+        parent_layout.addWidget(self.pbar_ms)
 
         # Preview + send
         self.btn_ms_preview = QtWidgets.QPushButton("Preview All Slices")
@@ -301,7 +308,14 @@ class ExtractPanel:
             self.lbl_ms_info.setText(f"Failed: {exc}")
 
     def _on_ms_send(self, target: str):
-        """Send each slice as a separate DXF upload."""
+        """Send every slice as one sheet, laid out exactly as Preview shows it.
+
+        Preview accumulates the faces from all slices and hands the whole list
+        to the composer; doing the same here means one upload whose layout is
+        the preview's by construction — both go through the same grid. Sending
+        a file per slice used to drop each one at the app's view centre, so the
+        slices landed stacked on top of each other rather than side by side.
+        """
         from freecad.spurline.core.selection_extractor import SelectionExtractor
         from freecad.spurline.core.sheet_composer import SheetComposer
         from freecad.spurline.api.client import SpurLineClient
@@ -314,7 +328,8 @@ class ExtractPanel:
 
         prefs = SpurLinePrefs()
         client = SpurLineClient()
-        endpoint = self._ensure_connected(target, prefs, client)
+        endpoint = self._ensure_connected(target, prefs, client,
+                                          label=self.lbl_ms_info)
         if endpoint is None:
             return
 
@@ -323,48 +338,98 @@ class ExtractPanel:
         extractor = SelectionExtractor()
         composer = SheetComposer()
 
-        bar = FreeCAD.Base.ProgressIndicator()
-        bar.start(f"Sending {len(offsets)} slices to {target.title()}...", 0)
-
-        sent = 0
+        # One step per extracted profile, then composing the sheet, then the
+        # upload — extraction dominates, so the bar tracks it closely.
+        self._ms_progress_begin(len(offsets) * len(items) + 2)
         try:
+            face_items = []
             for i, offset in enumerate(offsets):
-                self.lbl_ms_info.setText(
-                    f"Slice {i + 1}/{len(offsets)}: extracting..."
-                )
-                self.form.repaint()
-
                 placement = self._placement_at_offset(offset)
-                face_items = []
                 for obj, copies in items:
                     face = extractor.extract_face(
                         obj, bore=bore, keyway_w=keyway_w, placement=placement,
                     )
                     face_items.append((face, copies))
-
-                dxf_bytes = composer.multi_to_dxf_bytes(face_items)
-
-                self.lbl_ms_info.setText(
-                    f"Slice {i + 1}/{len(offsets)}: uploading..."
-                )
-                self.form.repaint()
-
-                result = client.send(endpoint, dxf_bytes, fmt="dxf")
-                if not result.success:
-                    self._show_error(
-                        f"Slice {i + 1} failed",
-                        result.error_message,
+                    self._ms_progress_step(
+                        f"Extracting slice {i + 1}/{len(offsets)}..."
                     )
-                    break
-                sent += 1
 
-            self.lbl_ms_info.setText(
-                f"{sent}/{len(offsets)} slices sent to {target.title()}."
+            self._ms_progress_step(
+                f"Composing sheet ({len(face_items)} profiles)..."
             )
+            dxf_bytes = composer.multi_to_dxf_bytes(face_items)
+
+            self._ms_progress_step(f"Uploading to {target.title()}...")
+            result, endpoint = self._send_with_reauth(
+                target, prefs, client, endpoint, dxf_bytes,
+                label=self.lbl_ms_info,
+            )
+            if result is None:
+                return                  # re-pairing failed; already reported
+
+            if result.success:
+                self.lbl_ms_info.setText(
+                    f"Sent {len(offsets)} slices to {target.title()} as one "
+                    f"sheet ({len(face_items)} profiles)."
+                )
+            elif result.is_auth_error:
+                self._show_error(
+                    "Authentication failed",
+                    f"{target.title()} rejected the secret again after "
+                    "re-authorizing.\n\n"
+                    "Check that the consent request was approved, or use\n"
+                    "SpurLine > Reset authorizations and try again.",
+                )
+            else:
+                self._show_error(
+                    f"Could not reach {target.title()}",
+                    result.error_message,
+                )
         except Exception as exc:
             self._show_error("Multi-slice failed", str(exc))
         finally:
-            bar.stop()
+            self._ms_progress_end()
+
+    # ------------------------------------------------------------------
+    # Multi-slice progress
+    # ------------------------------------------------------------------
+
+    def _ms_progress_begin(self, total: int):
+        """Show the progress bar and reset it to ``total`` steps.
+
+        The send buttons are disabled for the duration: pumping the event loop
+        below keeps the bar painting, but it also lets clicks through, and a
+        second send starting mid-extraction would corrupt the first.
+        """
+        self.pbar_ms.setRange(0, max(total, 1))
+        self.pbar_ms.setValue(0)
+        self.pbar_ms.setVisible(True)
+        self._ms_step = 0
+        self._ms_set_buttons_enabled(False)
+        QtWidgets.QApplication.processEvents()
+
+    def _ms_progress_step(self, text: str = None):
+        """Advance one step, optionally updating the status line.
+
+        Extraction blocks the event loop, so pump it here — without this the
+        bar would only paint once the whole send had finished.
+        """
+        self._ms_step += 1
+        self.pbar_ms.setValue(self._ms_step)
+        if text:
+            self.lbl_ms_info.setText(text)
+        QtWidgets.QApplication.processEvents()
+
+    def _ms_progress_end(self):
+        """Hide the progress bar once the send is over."""
+        self.pbar_ms.setVisible(False)
+        self._ms_set_buttons_enabled(True)
+        QtWidgets.QApplication.processEvents()
+
+    def _ms_set_buttons_enabled(self, enabled: bool):
+        for btn in (self.btn_ms_lightburn, self.btn_ms_millmage,
+                    self.btn_ms_preview):
+            btn.setEnabled(enabled)
 
     def _build_override_group(self, parent_layout):
         """Build the optional bore / keyway override fields."""
@@ -734,16 +799,21 @@ class ExtractPanel:
             # --- Step 4: send ---
             self.lbl_info.setText(f"Uploading to {target.title()}...")
             self.form.repaint()
-            result = client.send(endpoint, dxf_bytes, fmt="dxf")
+            result, endpoint = self._send_with_reauth(
+                target, prefs, client, endpoint, dxf_bytes
+            )
+            if result is None:
+                return                      # re-pairing failed; already reported
 
             if result.success:
                 self.lbl_info.setText(f"File accepted by {target.title()} (importing...)")
             elif result.is_auth_error:
                 self._show_error(
                     "Authentication failed",
-                    f"The stored secret was rejected by {target.title()}.\n\n"
-                    "Use SpurLine > Reset authorizations from the menu,\n"
-                    "then try sending again.",
+                    f"{target.title()} rejected the secret again after "
+                    "re-authorizing.\n\n"
+                    "Check that the consent request was approved, or use\n"
+                    "SpurLine > Reset authorizations and try again.",
                 )
             else:
                 self._show_error(
@@ -757,15 +827,19 @@ class ExtractPanel:
     # Connection helpers
     # ------------------------------------------------------------------
 
-    def _ensure_connected(self, target, prefs, client):
+    def _ensure_connected(self, target, prefs, client, label=None):
         """
         Return an ``EndpointConfig`` with a valid secret, or ``None``
         if the connection could not be established.
+
+        ``label`` is the status widget to narrate into — the multi-slice tab
+        passes its own.
         """
+        label = label or self.lbl_info
         endpoint = prefs.get_endpoint(target)
 
         if not endpoint.token:
-            self.lbl_info.setText(f"Requesting access from {target.title()}...")
+            label.setText(f"Requesting access from {target.title()}...")
             self.form.repaint()
             result = client.connect(endpoint.url)
             if result.success:
@@ -775,6 +849,34 @@ class ExtractPanel:
             return None
 
         return endpoint
+
+    def _send_with_reauth(self, target, prefs, client, endpoint, data,
+                          fmt="dxf", label=None):
+        """
+        Send, and if the app rejects the stored secret, drop it, pair again
+        and retry once.
+
+        A secret can stop being valid without the user doing anything wrong —
+        the app reinstalled, the pairing revoked, the secret half-written. The
+        manual "Reset authorizations" command covers that, but a rejected
+        secret is never worth keeping, so clear it here too.
+
+        Returns ``(result, endpoint)``. ``result`` is ``None`` when re-pairing
+        failed and the error has already been shown; ``endpoint`` is the
+        refreshed one after a successful re-pair, so the multi-slice loop
+        keeps using a live token for the slices that follow.
+        """
+        label = label or self.lbl_info
+        result = client.send(endpoint, data, fmt=fmt)
+        if not result.is_auth_error:
+            return result, endpoint
+
+        prefs.clear_secret(target)
+        # Token now empty, so _ensure_connected pairs again and narrates it.
+        refreshed = self._ensure_connected(target, prefs, client, label=label)
+        if refreshed is None:
+            return None, endpoint     # _ensure_connected already reported it
+        return client.send(refreshed, data, fmt=fmt), refreshed
 
     # ------------------------------------------------------------------
     # Dialog helpers

@@ -20,10 +20,13 @@ class NewDocFromWorkspace(inkex.EffectExtension):
         pars.add_argument("--app", default="LightBurn")
         pars.add_argument("--host", default="localhost")
         pars.add_argument("--port", type=int, default=19520)
+        pars.add_argument("--reset_auth", type=inkex.Boolean, default=False)
         pars.add_argument("--tab", default="opts")
 
     def effect(self):
         base_url = f"http://{self.options.host}:{self.options.port}"
+        if self.options.reset_auth:
+            self.msg(lb.forget_secret_message(base_url, self.options.app))
         try:
             secret = lb.ensure_secret(base_url, f"Inkscape ({self.options.app})")
             project = lb.get_project(base_url, secret)

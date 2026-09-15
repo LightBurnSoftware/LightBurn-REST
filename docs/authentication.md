@@ -29,6 +29,24 @@ Notes:
 - Each call produces a **distinct** secret. You are responsible for persisting
   your own secret securely.
 
+### Clients that run on another machine
+
+`POST /api/connect` is localhost-only, and returns the secret in its response
+body over plain HTTP — which is exactly why it isn't reachable from the
+network. A client running elsewhere therefore cannot pair itself.
+
+Provision it in two steps instead:
+
+1. Pair once on the machine running LightBurn / MillMage — either from a local
+   tool, or with any HTTP client (`curl`) against `localhost`.
+2. In the application, open **Manage authorizations**, select the entry, and
+   choose **Show Secret**. Transfer it to the other machine over a channel you
+   trust.
+
+The secret is not machine-bound: once issued it works from anywhere the
+listener is reachable. Treat it as a password in transit — revoke it from the
+same dialog if it is ever exposed.
+
 ## 2. Derive a Bearer token
 
 The token is an HMAC-SHA256 of the current Unix minute, keyed by the secret,
@@ -71,9 +89,18 @@ flowchart TD
 |-----------|----------|------------|
 | Missing or malformed token | `401` | Recompute the token; check the clock |
 | Token for an expired minute | `401` | Recompute (clock drift > 1 min) |
-| Secret revoked / stale | `401` / `403` | Discard the secret and re-pair |
-| Endpoint outside granted scope | `403` | Re-pair with the needed capability |
+| Secret revoked / stale | `401` | Discard the secret and re-pair |
+| Endpoint outside granted scope | `401` | Re-pair with the needed capability |
+| Request from off-machine while network access is off | `401` | Enable network access in the app, or call from localhost |
+| `POST /api/connect` from off-machine | `403` | Pair on the machine running the app |
 | Pairing declined or timed out | `403` | Prompt the user and retry `POST /api/connect` |
+
+Note the first four are **deliberately indistinguishable**. Every
+authorization failure on a gated endpoint returns a bare `401`, whether the
+token is absent, expired, revoked, lacking the capability, or arriving from a
+disallowed origin. The API does not tell an unauthenticated caller which of
+those it is, so don't branch on the reason — on any `401`, recompute the token
+once, and if it persists, re-pair.
 
 ## Security notes
 

@@ -84,6 +84,15 @@ class SpurLinePrefs:
         self._validate_target(target)
         self._params.SetString(self._SECRET_KEYS[target], secret)
 
+    def clear_secret(self, target: str):
+        """Remove one target's stored secret, leaving the other's alone.
+
+        Used by the send path when the app rejects a secret, so the next
+        attempt pairs again instead of failing the same way.
+        """
+        self._validate_target(target)
+        self._params.SetString(self._SECRET_KEYS[target], "")
+
     def clear_all_secrets(self):
         """Remove all stored secrets (re-authorization will be required)."""
         for key in self._SECRET_KEYS.values():

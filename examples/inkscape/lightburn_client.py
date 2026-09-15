@@ -91,11 +91,26 @@ def _token(secret):
     return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
 
 
-def _drop_secret(base_url):
-    """Forget a stale secret so the next run re-pairs cleanly."""
+def forget_secret(base_url):
+    """Forget a stale secret so the next run re-pairs cleanly.
+
+    Returns True if one was stored. Only this base_url is cleared — other hosts
+    and the other product keep their own pairing.
+    """
     secrets = _load()
-    secrets.pop(base_url, None)
-    _save(secrets)
+    had = secrets.pop(base_url, None) is not None
+    if had:
+        _save(secrets)
+    return had
+
+
+def forget_secret_message(base_url, label):
+    """Clear the stored secret for base_url and return a user-facing summary."""
+    if forget_secret(base_url):
+        return (f"Cleared the stored {label} authorization for {base_url}. "
+                f"Approve the new consent request in {label}.")
+    return (f"No stored {label} authorization for {base_url} — "
+            f"this run pairs from scratch anyway.")
 
 
 def get_project(base_url, secret):
@@ -109,7 +124,7 @@ def get_project(base_url, secret):
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
-            _drop_secret(base_url)
+            forget_secret(base_url)
             raise LBError("Authorization failed (stored secret may be stale, or "
                           "lacks the 'project' scope). Run again to re-pair.")
         raise LBError(f"Could not read project: HTTP {exc.code} {exc.reason}")
@@ -142,7 +157,7 @@ def upload(base_url, secret, data, filename, position=None, origin=None):
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         if exc.code in (401, 403):
-            _drop_secret(base_url)
+            forget_secret(base_url)
             raise LBError("Authorization failed (stored secret may be stale). "
                           "Run again to re-pair.")
         raise LBError(f"Upload failed: HTTP {exc.code} {exc.reason}")

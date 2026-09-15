@@ -1,9 +1,9 @@
 # API Overview
 
-The LightBurn / MillMage REST API is a local HTTP interface exposed by the
-desktop applications. It lets external programs read application and machine
-state, read project data, and submit files for import — over plain HTTP on the
-loopback interface.
+The LightBurn / MillMage REST API is an HTTP interface exposed by the desktop
+applications. It lets external programs read application and machine state,
+read project data, and submit files for import — over plain HTTP, on the
+loopback interface by default.
 
 This page is the conceptual map. For step-by-step usage see
 [Getting started](getting-started.md); for the exhaustive contract see
@@ -14,22 +14,35 @@ This page is the conceptual map. For step-by-step usage see
 The API is served by the running desktop application — there is no separate
 server to start. It listens whenever the app is open:
 
-| Application | Default base URL |
-|-------------|------------------|
+| Application | Base URL |
+|-------------|----------|
 | LightBurn   | `http://localhost:19520` |
 | MillMage    | `http://localhost:19521` |
 
-Both ports are user-overridable in the application's settings. The API binds to
-the loopback interface by default; reaching it from another machine requires
-enabling network access in the application.
+These ports are fixed per product — there is no setting to change them.
+
+The API binds to the loopback interface by default. To reach it from another
+machine, enable **Settings → Extensions → Allow API Access From Network** in
+the desktop application; the listener then accepts connections on any
+interface. On Windows this may prompt once for a firewall rule.
+
+Pairing is the exception: `POST /api/connect` is **always** restricted to
+localhost, even with network access enabled, and returns `403` otherwise. A
+remote client must therefore be paired locally first, then use the resulting
+secret from wherever it runs. See [Authentication](authentication.md).
 
 ```mermaid
 flowchart LR
     subgraph Desktop["Desktop machine"]
         App["LightBurn / MillMage<br/>(REST API listener)"]
-        Client["Your app / script<br/>(HTTP client)"]
-        Client -- "HTTP + Bearer token" --> App
+        Local["Local app / script"]
+        Local -- "HTTP + Bearer token" --> App
+        Local -. "POST /api/connect<br/>(localhost only)" .-> App
     end
+    subgraph Remote["Another machine (network access enabled)"]
+        Far["Remote app / script"]
+    end
+    Far -- "HTTP + Bearer token" --> App
     App -- "consent dialog" --> User((User))
 ```
 

@@ -90,6 +90,21 @@ tab. Other options: **De-duplicate shared segments** and **Selection only**
 > and **upload** (send files). If you paired an earlier build that only asked
 > for `upload`, the next run re-pairs automatically.
 
+## Resetting authorization
+
+If a command fails with an authorization error that doesn't clear on its own,
+tick **Reset authorization (pair again on this run)** on the **Advanced** tab of
+any of the three commands. It forgets the secret saved for that host and port,
+so the run that follows pairs from scratch — approve the fresh consent dialog in
+the app. Only the host you're running against is cleared; other hosts, and the
+other product, keep their own authorization.
+
+The plugin already drops a secret by itself when the app answers 401/403, so the
+checkbox is for the cases that survive that — a half-written secrets file, a
+pairing the app no longer recognises, or a machine that was reimaged. The store
+is a plain JSON file at `…/lightburn-rest/inkscape-secrets.json`; deleting it
+clears every host at once.
+
 ## Sending over the network
 
 By default everything talks to `localhost`. To drive a LightBurn / MillMage on

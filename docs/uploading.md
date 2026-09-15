@@ -46,8 +46,14 @@ specific workspace coordinate:
 ## Knowing when the import finished
 
 The `202` only means the file was received. The actual import result arrives
-over the [`state`](capabilities.md) channel as a `file_imported` event — via the
-`GET /api/events` SSE stream or the `GET /api/events/poll` fallback. Request the
-`state` capability too if you need to confirm success.
+over the [`state`](capabilities.md) channel as a `file_imported` event, carrying
+`{"success": true}` or `{"success": false, "error": "…"}`. Request the `state`
+capability too if you need to confirm the import.
+
+**This event is only delivered on the `GET /api/events` SSE stream.** The
+`GET /api/events/poll` fallback returns a snapshot of current state — position,
+job, overrides, aux, connection, settings — and does not carry events, so a
+polling client cannot observe `file_imported`. If you need import confirmation,
+hold an SSE connection open across the upload.
 
 See [`openapi.yaml`](openapi.yaml) for the full header and response schemas.
