@@ -113,7 +113,14 @@ components:
       type: object
       properties:
         state: { type: string, enum: [idle, running, paused] }
-        progress: { type: number, minimum: 0, maximum: 100 }
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: >
+            Percent complete. Optional — absent when not applicable: while
+            `state` is `idle`, and on controllers that cannot report execution
+            progress. Treat absence as "unknown", not as zero.
 
     Overrides:
       type: object
