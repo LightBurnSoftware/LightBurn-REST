@@ -26,6 +26,7 @@ The APIs are primarily intended for:
 
 - Reading application state
 - Querying supported information
+- Adjusting project cut settings
 - Exchanging data with LightBurn or MillMage
 - Building workflow integrations
 - Building companion applications
@@ -55,6 +56,7 @@ Please review `SAFETY.md` before implementing machine-related workflows.
 | [`docs/getting-started.md`](docs/getting-started.md) | Pairing, HMAC token derivation, first call |
 | [`docs/capabilities.md`](docs/capabilities.md) | Token scopes and the endpoints each unlocks |
 | [`docs/uploading.md`](docs/uploading.md) | Importing artwork and projects |
+| [`docs/cut-settings.md`](docs/cut-settings.md) | Reading and changing layer / operation cut settings |
 | `lib/` | `lightburn_rest` — a stdlib-only Python client (install from source) |
 | [`examples/spurline/`](examples/spurline/) | FreeCAD workbench that generates gear profiles and sends them to LightBurn/MillMage (reference client) |
 | [`examples/inkscape/`](examples/inkscape/) | Inkscape extension that de-duplicates coincident SVG segments before sending (reference client) |
@@ -70,8 +72,9 @@ Please review `SAFETY.md` before implementing machine-related workflows.
   Obtain a secret by pairing a localhost app via `POST /api/connect`. Pairing
   is localhost-only even when network access is enabled.
 - **Capabilities:** a token is scoped at pairing time to any of `state`
-  (read-only machine/job state), `project` (read-only project data), and
-  `upload` (submit files for import).
+  (read-only machine/job state), `project` (read-only project data),
+  `upload` (submit files for import), and `project_write` (change cut
+  settings).
 
 See [`docs/openapi.yaml`](docs/openapi.yaml) for the full endpoint reference.
 

@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   description: |
     REST API for LightBurn and MillMage. Provides file upload and import,
-    read-only project and machine-state queries, and real-time state
-    streaming via Server-Sent Events.
+    read-only project and machine-state queries, cut-setting edits, and
+    real-time state streaming via Server-Sent Events.
 
     ## Authentication
 
@@ -67,6 +67,9 @@ components:
 
     Position:
       type: object
+      description: |
+        Always in mm, regardless of display units. An axis the controller
+        doesn't report is omitted.
       properties:
         machine:
           type: object
@@ -113,7 +116,16 @@ components:
       type: object
       properties:
         state: { type: string, enum: [idle, running, paused] }
-        progress: { type: number, minimum: 0, maximum: 100 }
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: >
+            Percent complete. Optional — absent when not applicable: while
+            `state` is `idle`, and on controllers that cannot report execution
+            progress (Ruida reports file-transfer progress only, so the field
+            is absent for the duration of the cut). Treat absence as
+            "unknown", not as zero.
 
     Overrides:
       type: object
@@ -163,35 +175,82 @@ components:
           enum: [cut, scan, offset, image, tool]
           description: Only present when `kind == "normal"`.
         params:
-          oneOf:
+          description: Shape follows `kind`.
+          anyOf:
+            - $ref: '#/components/schemas/LaserCutParams'
             - type: object
-              description: Normal cut params (when `kind == "normal"`)
-              properties:
-                speed: { type: number }
-                min_power: { type: number }
-                max_power: { type: number }
-                num_passes: { type: integer }
-                z_offset: { type: number }
-                frequency: { type: integer }
-                kerf: { type: number }
-                bi_directional: { type: boolean }
-                cross_hatch: { type: boolean }
-            - type: object
-              description: Image cut params (when `kind == "image"`)
+              description: |
+                Image cut params (when `kind == "image"`), plus the source and
+                pulse fields of `LaserCutParams` except `min_power_2`.
               properties:
                 speed: { type: number }
                 max_power: { type: number }
                 dpi: { type: number }
                 dither_mode: { type: string }
+                max_power_2: { type: number }
+                laser1_enabled: { type: boolean }
+                laser2_enabled: { type: boolean }
+                alt_source: { type: boolean }
+                q_pulse_width: { type: number }
+                fiber_pulse_width: { type: integer }
         sub_layers:
           type: array
-          description: Only present when `kind == "normal"`.
+          description: |
+            Only present when `kind == "normal"`. Additional sub-layers
+            beyond the base layer; the base layer itself is reported in
+            `mode` / `params` and is not repeated here. Empty when the
+            layer has no sub-layers.
           items:
             type: object
+            required: [index, name, enabled, mode, params]
             properties:
-              speed: { type: number }
-              max_power: { type: number }
-              z_offset: { type: number }
+              index:
+                type: integer
+                minimum: 1
+                description: Sub-layer position within the cut (the base layer is 0).
+              name:
+                type: string
+                description: User-assigned sub-layer name; may be empty.
+              enabled:
+                type: boolean
+                description: Whether this sub-layer is output.
+              mode:
+                type: string
+                enum: [cut, scan, offset, image, tool]
+              params:
+                $ref: '#/components/schemas/LaserCutParams'
+
+    LaserCutParams:
+      type: object
+      description: |
+        Vector cut params, shared by a cut's base layer and its sub-layers.
+        Source and pulse fields are always present; `/api/project`
+        `device.laser` says which apply to the connected device.
+      properties:
+        speed: { type: number }
+        min_power: { type: number }
+        max_power: { type: number }
+        num_passes: { type: integer }
+        z_offset: { type: number }
+        frequency:
+          type: integer
+          description: Hz. Also the galvo pulse frequency when the device supports it.
+        kerf: { type: number }
+        bi_directional: { type: boolean }
+        cross_hatch: { type: boolean }
+        min_power_2: { type: number, description: Min power for laser 2 (dual-source). }
+        max_power_2: { type: number, description: Max power for laser 2 (dual-source). }
+        laser1_enabled: { type: boolean, description: Laser 1 fires on this layer (dual-source). }
+        laser2_enabled: { type: boolean, description: Laser 2 fires on this layer (dual-source). }
+        alt_source:
+          type: boolean
+          description: Galvo only — use the alternate (second) laser source.
+        q_pulse_width:
+          type: number
+          description: MOPA pulse width in ns (when `device.laser.mopa_source` is not 0).
+        fiber_pulse_width:
+          type: integer
+          description: Fiber pulse width in ns, for gantry fiber sources (`laser1_fiber` / `laser2_fiber`).
 
     LaserCuts:
       type: object
@@ -205,14 +264,21 @@ components:
 
     CncCut:
       type: object
-      required: [index, name, kind, layer_index, enabled, priority, operation, tool]
+      description: |
+        One MillMage operation. Operations attach to shapes, not layers, so
+        there is no `layer_index`. There is no `priority` either: operations
+        run in list order, which `index` already gives.
+      required: [index, name, kind, shape_count, enabled, operation, tool]
       properties:
-        index: { type: integer }
+        index:
+          type: integer
+          description: Position in the project's operation list (use with `/api/cuts/{index}`).
         name: { type: string }
         kind: { type: string, enum: [normal] }
-        layer_index: { type: integer }
+        shape_count:
+          type: integer
+          description: Number of shapes the operation is assigned to; 0 means unused.
         enabled: { type: boolean }
-        priority: { type: integer }
         operation:
           type: string
           enum:
@@ -231,6 +297,8 @@ components:
             - relief
             - roughing
             - texturing
+            - vcarve
+            - vcarve_clear
             - image
             - invalid
         tool:
@@ -241,8 +309,24 @@ components:
             feed_rate: { type: number }
             plunge_rate: { type: number }
             spindle_rpm: { type: number }
-        vacuum: { type: boolean }
-        coolant: { type: boolean }
+        settings:
+          type: object
+          description: |
+            The operation's stored properties, keyed by schema name; the set
+            depends on the operation type (e.g. `passDepth`, `feedRate`,
+            `stepOver`, `vacuum`, `coolant`). Distances in mm, speeds in
+            mm/s. Enum properties are names, e.g. `cutDirection: "climb"`.
+            Lists every stored property, including some the operation
+            dialog doesn't show for this type.
+          additionalProperties: true
+          example: { passDepth: 1.5, feedRate: 25, cutDirection: climb, whichSide: outside, vacuum: false }
+        shared_fields:
+          type: array
+          items: { type: string }
+          description: |
+            `settings` keys taken from the linked primary operation (e.g.
+            `startDepth`, `finalDepth`). Their values are the primary's, and
+            they can only be changed on the primary. Empty if not linked.
 
     CncCuts:
       type: object
@@ -305,9 +389,10 @@ paths:
 
         | Wire string | Covers |
         |---|---|
-        | `state` | Read-only machine and job state. `/api/status`, `/api/position`, `/api/jog/settings` (GET), `/api/goto/saved` (GET), `/api/units` (GET), `/api/events`, `/api/events/poll`. |
+        | `state` | Read-only machine and job state. `/api/status`, `/api/position`, `/api/jog/settings`, `/api/goto/saved`, `/api/units`, `/api/events`, `/api/events/poll`. |
         | `project` | Read-only project data. `/api/project`, `/api/layers`, `/api/cuts`, `/api/cuts/{index}`, `/api/material-library`. |
         | `upload`  | Submit files for import. `/api/file/upload`, `/api/file/open`. |
+        | `project_write` | Change project data. `POST /api/cuts/{index}`. |
       security: []
       requestBody:
         required: true
@@ -329,8 +414,8 @@ paths:
                     array of known wire strings; unknown entries fail with 400.
                   items:
                     type: string
-                    enum: [state, project, upload]
-                  example: [state, upload]
+                    enum: [state, project, upload, project_write]
+                  example: [state, project]
       responses:
         '200':
           description: Connection approved, secret returned
@@ -391,7 +476,6 @@ paths:
                 $ref: '#/components/schemas/JogSettings'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /api/goto/saved:
     get:
       summary: List saved positions
@@ -426,7 +510,6 @@ paths:
                     enum: [mm/s, mm/min, in/min]
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /api/file/upload:
     post:
       summary: Upload a file to import
@@ -520,7 +603,8 @@ paths:
 
         Same authorization scope as `/api/file/upload` (`upload` capability).
         No position or grouping headers — irrelevant for the replace-project
-        flow.
+        flow. Returns 202 immediately; the result is reported by the
+        `file_imported` SSE event.
       parameters:
         - name: X-Filename
           in: header
@@ -556,7 +640,10 @@ paths:
       description: |
         Top-level read-only snapshot of the loaded project: filename,
         modified flag, shape count, workspace dimensions, and the connected
-        device. Distance values are in the user's current display units.
+        device. `workspace` values are always in mm. `units` names the
+        user's display units (`distance` is the translated UI label). With
+        no project loaded, only `filename`, `modified` and `shape_count`
+        are returned.
       responses:
         '200':
           description: Project metadata
@@ -588,6 +675,32 @@ paths:
                     properties:
                       name: { type: string }
                       supports_z: { type: boolean }
+                      laser:
+                        type: object
+                        description: |
+                          LightBurn only, when a device is set. Capabilities
+                          that decide which cut source/pulse fields apply.
+                          LightBurn doesn't classify CO2 / diode / fiber in
+                          general; `controller` is given so clients can infer.
+                        properties:
+                          controller: { type: string, example: Ruida }
+                          galvo: { type: boolean }
+                          flying_galvo: { type: boolean }
+                          uv: { type: boolean }
+                          sources:
+                            type: integer
+                            description: Laser sources the controller supports (2 = dual-source).
+                          sources_enabled:
+                            type: integer
+                            description: Sources enabled in the device settings.
+                          mopa_source:
+                            type: integer
+                            enum: [0, 1, 2]
+                            description: Which source is MOPA (0 = none); enables `q_pulse_width`.
+                          laser1_fiber:
+                            type: boolean
+                            description: Laser 1 is a fiber source (gantry); enables `fiber_pulse_width`.
+                          laser2_fiber: { type: boolean }
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -648,7 +761,16 @@ paths:
         The `layer_index` field is separate from `index` and maps to the
         actual layer slot on the desktop.
 
-        Distance and speed values use the user's current display units.
+        The LightBurn list is fixed-size, whether or not layers are in use:
+        30 cut layers, 2 tool layers (`mode: "tool"`), one internal
+        virtual-array cut (`layer_index: -1`, not editable), then 30 image
+        cuts. Use `/api/layers` `in_use` to find the layers in use.
+
+        On MillMage, `cuts` is the project's operation list in order, and
+        `index` is the operation's position in it.
+
+        LightBurn values and the MillMage `tool` block use the user's
+        display units; MillMage `settings` use mm and mm/s.
       responses:
         '200':
           description: Cut settings snapshot
@@ -687,6 +809,104 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           description: Cut index out of range or slot is empty
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Update one cut setting (partial)
+      description: |
+        Changes the cut at the global flat `index` (the same index `GET`
+        uses). Only the fields present in the body change. Requires the
+        `project_write` capability.
+
+        The whole body is validated first; on any error nothing changes.
+        A successful change is one undoable step in the application
+        ("Change cut settings") and marks the project modified. Values use
+        the same display units `GET` reports. Changes are allowed while a
+        job is running; a job already sent to the machine is not affected.
+
+        Editable fields (LightBurn):
+        - `kind: "normal"` cuts: `name`, `enabled`, `mode`
+          (`cut` / `scan` / `offset`), `params` (any `LaserCutParams`
+          field), and existing `sub_layers` addressed by `index` (`name`,
+          `enabled`, `mode`, `params`). Adding or removing sub-layers is
+          not supported.
+        - `kind: "image"` cuts: `name`, `enabled`, and `params.speed`,
+          `params.max_power`, `params.dither_mode` (one of the strings
+          `GET` reports, e.g. `Stucki`), plus the source and pulse fields.
+          `dpi` is read-only.
+        - Powers (including `*_power_2`) are 0–100; `q_pulse_width` > 0;
+          `fiber_pulse_width` a positive integer.
+
+        Tool layers and internal cuts are rejected with 400.
+
+        Editable fields (MillMage): `name`, `enabled`, and any `settings`
+        key the operation reports, with the same JSON type (enums by name).
+        `shared_fields` are rejected on linked secondaries. The operation's
+        type, tool and shapes can't be changed. The response `index` can
+        differ from the request if a linked chain is re-sorted.
+      parameters:
+        - name: index
+          in: path
+          required: true
+          schema: { type: integer, minimum: 0 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1 }
+                enabled: { type: boolean }
+                mode: { type: string, enum: [cut, scan, offset] }
+                params:
+                  type: object
+                  description: |
+                    `LaserCutParams` fields for normal cuts; `speed`,
+                    `max_power`, `dither_mode` for image cuts.
+                sub_layers:
+                  type: array
+                  items:
+                    type: object
+                    required: [index]
+                    additionalProperties: false
+                    properties:
+                      index: { type: integer, minimum: 1 }
+                      name: { type: string }
+                      enabled: { type: boolean }
+                      mode: { type: string, enum: [cut, scan, offset] }
+                      params: { $ref: '#/components/schemas/LaserCutParams' }
+                settings:
+                  type: object
+                  description: MillMage only — see `CncCut.settings`.
+            example:
+              params: { speed: 150, max_power: 65 }
+              sub_layers:
+                - { index: 1, enabled: false }
+      responses:
+        '200':
+          description: Updated cut (same shape as `GET /api/cuts/{index}`)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LaserCut'
+                  - $ref: '#/components/schemas/CncCut'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Cut index out of range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The cut settings / operation editor is open in the application
           content:
             application/json:
               schema:
@@ -766,17 +986,21 @@ paths:
 
         ### Event types
 
-        | Event | Frequency | Description |
-        |-------|-----------|-------------|
-        | `position` | ~2 Hz | Machine and workpiece coordinates |
-        | `job` | ~2 Hz | Job state (idle/running/paused) and progress |
-        | `settings` | On change | Jog distance, speed, units |
-        | `overrides` | On change | Feed rate and power override percentages |
-        | `aux` | On change | Spindle, coolant, vacuum state |
-        | `connection` | On change | Device connected, name, capabilities |
-        | `file_imported` | After upload | Import success/failure |
+        | Event | Frequency | `data` |
+        |-------|-----------|--------|
+        | `position` | ~2 Hz | `Position` |
+        | `job` | ~2 Hz | `JobState` |
+        | `settings` | On change | `JogSettings` |
+        | `overrides` | On change | `Overrides` |
+        | `aux` | On change | `AuxState` |
+        | `connection` | On change | `ConnectionStatus` |
+        | `file_imported` | After `/api/file/upload` or `/api/file/open` | `{"success": bool, "error"?: string}` |
 
-        A `:keepalive` comment is sent every 30 seconds.
+        The stream opens with a `:connected` comment, and a `:keepalive`
+        comment is sent every 30 seconds.
+
+        "On change" events are not re-sent to a new subscriber, so call
+        `/api/events/poll` once after connecting to get the current state.
       responses:
         '200':
           description: SSE event stream
@@ -785,7 +1009,7 @@ paths:
               schema:
                 type: string
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Missing or invalid Bearer token (empty body)
 
   /api/events/poll:
     get:

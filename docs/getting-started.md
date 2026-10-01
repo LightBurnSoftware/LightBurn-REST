@@ -85,4 +85,5 @@ A missing or invalid token returns `401`. All endpoints except `/` and
 
 - [Capabilities](capabilities.md) — what each token scope unlocks.
 - [Uploading files](uploading.md) — import artwork and projects.
+- [Cut settings](cut-settings.md) — read and change layer / operation settings.
 - [`examples/spurline`](../examples/spurline/) — a working FreeCAD client.
