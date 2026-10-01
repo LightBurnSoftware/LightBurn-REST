@@ -97,7 +97,19 @@ Each operation reports:
 | MillMage `tool` block | The user's display units |
 | MillMage `settings` | Always mm and mm/s |
 
-Read the display units from `GET /api/units` or `units` on `GET /api/project`.
+Read the display units from `GET /api/units`, which reports two independent
+fields:
+
+| Field | Applies to | Values |
+|-------|------------|--------|
+| `units` | speeds (`speed`, `feed_rate`, `plunge_rate`) | `mm/s`, `mm/min`, `in/s`, `in/min` |
+| `distance_units` | distances (`z_offset`, `kerf`, `diameter`) | `mm`, `in` |
+
+They are reported separately because the application supports mixed modes that
+pair inch distances with metric speeds — **never infer the distance unit from
+the speed unit.** (`units.distance` on `GET /api/project` is a translated UI
+label meant for display, not for conversion.)
+
 `POST` takes values in the same units `GET` reports.
 
 ## Changing a cut

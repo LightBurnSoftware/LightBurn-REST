@@ -57,11 +57,11 @@ Please review [SAFETY.md](SAFETY.md) before implementing machine-related workflo
 | [`docs/capabilities.md`](docs/capabilities.md) | Token scopes and the endpoints each unlocks |
 | [`docs/uploading.md`](docs/uploading.md) | Importing artwork and projects |
 | [`docs/cut-settings.md`](docs/cut-settings.md) | Reading and changing layer / operation cut settings |
-| `lib/` | `lightburn_rest` — a stdlib-only Python client (install from source) |
 | [`examples/spurline/`](examples/spurline/) | FreeCAD workbench that generates gear profiles and sends them to LightBurn/MillMage (reference client) |
 | [`examples/inkscape/`](examples/inkscape/) | Inkscape extension that de-duplicates coincident SVG segments before sending (reference client) |
 
-> `lib/` is in progress.
+> A stdlib-only Python client (`lightburn_rest`) is in progress and will be
+> published here when it lands.
 
 ## The API at a glance
 

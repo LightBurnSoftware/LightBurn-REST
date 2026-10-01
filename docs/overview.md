@@ -12,7 +12,7 @@ This page is the conceptual map. For step-by-step usage see
 ## Where the API lives
 
 The API is served by the running desktop application — there is no separate
-server to start. It listens whenever the app is open:
+server to start. It listens while the app is open:
 
 | Application | Base URL |
 |-------------|----------|
@@ -30,6 +30,23 @@ Pairing is the exception: `POST /api/connect` is **always** restricted to
 localhost, even with network access enabled, and returns `403` otherwise. A
 remote client must therefore be paired locally first, then use the resulting
 secret from wherever it runs. See [Authentication](authentication.md).
+
+### Multiple instances
+
+One running copy of the application serves the port at a time. Users can open
+several copies at once, which has two consequences worth coding for:
+
+- **The listener follows the foreground window.** Whichever copy was most
+  recently brought to the front serves the port. Switching windows moves the
+  listener, and a request issued during the switch may fail to connect — retry
+  rather than treating it as fatal.
+- **A secret belongs to the copy you paired with.** Another copy may not
+  recognise it until it reloads its settings. If a secret that was working
+  starts returning `401` on a machine with several copies open, pair again
+  rather than assuming it was revoked.
+
+Neither applies to a single running instance, which serves the port for as
+long as it is open.
 
 ```mermaid
 flowchart LR
@@ -137,9 +154,11 @@ sequenceDiagram
 
 Positions and the project workspace are always reported in mm. Cut values on
 LightBurn, the MillMage tool block, and jog settings use the user's display
-units, which `GET /api/units` and `GET /api/project` report. MillMage
-operation settings are always mm and mm/s. See
-[Cut settings](cut-settings.md#units).
+units, which `GET /api/units` reports as two independent fields — `units` for
+speed, `distance_units` for distance. They are separate because the
+application supports mixed modes that pair inch distances with metric speeds,
+so one cannot be inferred from the other. MillMage operation settings are
+always mm and mm/s. See [Cut settings](cut-settings.md#units).
 
 ## Next steps
 

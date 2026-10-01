@@ -2,11 +2,15 @@
 
 The LightBurn / MillMage REST API is an HTTP API served on loopback — port
 **19520** for LightBurn and **19521** for MillMage. These are fixed per
-product and cannot be changed. The API listens whenever the app is open, and
-can be opened to the network via **Settings → Extensions → Allow API Access
-From Network**. The examples below use loopback. This guide covers pairing to
+product and cannot be changed. The API listens while the app is open, and can
+be opened to the network via **Settings → Extensions → Allow API Access From
+Network**. The examples below use loopback. This guide covers pairing to
 obtain a shared secret and deriving the Bearer token every authenticated
 request needs.
+
+If the user runs more than one copy of the application, the port is served by
+the most recently focused one — see
+[Multiple instances](overview.md#multiple-instances).
 
 The full endpoint reference is [`openapi.yaml`](openapi.yaml) (render it with
 [`index.html`](index.html) or any OpenAPI viewer).

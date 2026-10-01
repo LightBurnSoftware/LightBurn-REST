@@ -10,6 +10,9 @@ All endpoints except `GET /` and `POST /api/connect` require a Bearer token
 `localhost` with the host's address when the application has network access
 enabled; `POST /api/connect` remains localhost-only regardless.
 
+With more than one copy of the same product running, the port is served by the
+most recently focused window — see [Overview](overview.md#multiple-instances).
+
 ## Pairing & service (no auth)
 
 | Method & path | Description |
@@ -68,8 +71,12 @@ is open.
 - **Units:** positions (`/api/position`, the `position` event) and the
   `/api/project` `workspace` are always in mm. LightBurn cut values, the
   MillMage `tool` block, and jog settings use the user's display units — read
-  them from `GET /api/units` or `GET /api/project`. MillMage operation
-  `settings` are always mm and mm/s.
+  those from `GET /api/units`, which reports the speed unit as `units` and the
+  distance unit as `distance_units`. The two are independent: the application
+  supports modes that pair inch distances with metric speeds, so never infer
+  one from the other. MillMage operation `settings` are always mm and mm/s.
+  (`/api/project` `units.distance` is a translated UI label for display only —
+  don't parse it.)
 - **Optional fields:** a field the application can't report is omitted rather
   than zeroed — for example an axis the controller doesn't report, or job
   `progress` while idle or on controllers that don't report it. Treat absence

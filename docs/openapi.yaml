@@ -31,6 +31,21 @@ info:
       responsible for persisting their own secret. Each call produces a
       distinct secret, even for the same `application_name`.
 
+    ## Multiple instances
+
+    The port is served by one running copy of the application at a time. If
+    several copies are open, the one most recently brought to the foreground
+    serves it; switching windows moves the listener, and a request made during
+    the switch may fail to connect. Retry.
+
+    A secret is recognised by the copy that was running when you paired, and
+    may not be recognised by another copy until that one reloads its settings.
+    If a previously working secret starts returning `401` on a machine with
+    several copies open, pair again rather than assuming it was revoked.
+
+    Neither applies to a single running instance, which serves the port for as
+    long as it is open.
+
 servers:
   - url: http://localhost:19520
     description: |
@@ -38,14 +53,18 @@ servers:
       loopback by default; enable "Allow API Access From Network" in
       Settings > Extensions to accept connections on any interface.
       `POST /api/connect` stays localhost-only either way.
-      The API listens whenever LightBurn is open.
+      The API listens while LightBurn is open. With more than one copy of
+      LightBurn running, the port is served by the most recently focused
+      window — see the Multiple instances note in the description above.
   - url: http://localhost:19521
     description: |
       MillMage. Port 19521, fixed per product — not user-overridable. Binds
       loopback by default; enable "Allow API Access From Network" in
       Settings > Extensions to accept connections on any interface.
       `POST /api/connect` stays localhost-only either way.
-      The API listens whenever MillMage is open.
+      The API listens while MillMage is open. With more than one copy of
+      MillMage running, the port is served by the most recently focused
+      window — see the Multiple instances note in the description above.
 
 security:
   - bearerAuth: []
@@ -99,7 +118,18 @@ components:
         z_distance: { type: number, example: 1.0 }
         xy_speed: { type: number, example: 1500.0 }
         z_speed: { type: number, example: 250.0 }
-        units: { type: string, enum: [mm/s, mm/min, in/min] }
+        units:
+          type: string
+          enum: [mm/s, mm/min, in/s, in/min]
+          description: >
+            The speed unit. Distances use `distance_units` — do not infer them
+            from this field.
+        distance_units:
+          type: string
+          enum: [mm, in]
+          description: >
+            The distance unit. Reported separately because the application
+            supports mixed modes that pair inch distances with metric speeds.
 
     SavedPosition:
       type: object
@@ -441,6 +471,11 @@ paths:
   /api/status:
     get:
       summary: Connection status
+      description: |
+        When no machine is attached, `connected` and the `supports_*` flags are
+        `false` and `device_name` still names the selected device profile. The
+        endpoint always answers — it does not fail or return an empty body
+        because nothing is connected.
       responses:
         '200':
           description: Current connection state and device capabilities
@@ -497,6 +532,14 @@ paths:
   /api/units:
     get:
       summary: Get current display units
+      description: |
+        The user's display units, as two independent axes: `units` is the
+        speed unit, `distance_units` the distance unit.
+
+        They are separate because the application's control-unit modes include
+        mixed combinations — inch distances with metric speeds — that a single
+        string cannot express. Read `distance_units` to convert distances;
+        do not infer the distance unit from `units`.
       responses:
         '200':
           description: Current units
@@ -507,7 +550,13 @@ paths:
                 properties:
                   units:
                     type: string
-                    enum: [mm/s, mm/min, in/min]
+                    enum: [mm/s, mm/min, in/s, in/min]
+                  distance_units:
+                    type: string
+                    enum: [mm, in]
+              example:
+                units: mm/min
+                distance_units: mm
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/file/upload:
@@ -678,8 +727,9 @@ paths:
                       laser:
                         type: object
                         description: |
-                          LightBurn only, when a device is set. Capabilities
-                          that decide which cut source/pulse fields apply.
+                          LightBurn only, and only while a machine profile is
+                          loaded. Capabilities that decide which cut
+                          source/pulse fields apply.
                           LightBurn doesn't classify CO2 / diode / fiber in
                           general; `controller` is given so clients can infer.
                         properties:
@@ -826,6 +876,9 @@ paths:
         the same display units `GET` reports. Changes are allowed while a
         job is running; a job already sent to the machine is not affected.
 
+        An out-of-range `index` returns `404` whether or not the editor is
+        open — the index is checked first.
+
         Editable fields (LightBurn):
         - `kind: "normal"` cuts: `name`, `enabled`, `mode`
           (`cut` / `scan` / `offset`), `params` (any `LaserCutParams`
@@ -953,7 +1006,14 @@ paths:
                               description: Material thickness; -1 for "no thickness" entries.
                             locked: { type: boolean }
                             cut:
-                              $ref: '#/components/schemas/LaserCut'
+                              allOf:
+                                - $ref: '#/components/schemas/LaserCut'
+                              description: >
+                                Same shape as one /api/cuts entry, with one
+                                exception: `index` and `layer_index` are both
+                                -1. A library entry has no position in the
+                                project's cut list, so neither field can be
+                                used with /api/cuts/{index}.
                   - type: object
                     description: MillMage (CNC) operations library.
                     properties:

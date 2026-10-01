@@ -11,6 +11,11 @@ breaking changes below ship without a version bump.
 
 ### Added
 
+- `distance_units` (`mm` / `in`) on `GET /api/units`, `GET /api/jog/settings`
+  and the `settings` event, alongside `units`.
+- `in/s` added to the `units` enum.
+- Multiple instances section describing which running copy serves the port and
+  what that means for a paired secret (`docs/overview.md`, spec description).
 - `project_write` capability, requested through `POST /api/connect`.
 - `POST /api/cuts/{index}` — partial update of one cut setting (LightBurn) or
   operation (MillMage). Validated as a whole, applied as a single undo step,
@@ -27,6 +32,24 @@ breaking changes below ship without a version bump.
   and `CncCut.shared_fields`.
 - `vcarve` and `vcarve_clear` values for `CncCut.operation`.
 
+### Fixed
+
+- `units` reported `mm/s` whenever the application's control units were set to
+  `in/sec` or to either mixed mode (inch distances with metric speeds). A
+  client converting on the reported unit was wrong by a factor of 25.4 — the
+  same class of error corrected in the Inkscape examples last release. `units`
+  is now strictly the speed unit and always accurate; the distance unit moved
+  to the new `distance_units` field.
+- `cut.index` on `GET /api/material-library` entries was `0`, which looked
+  like a valid `/api/cuts` position. Library entries have no position in the
+  cut list, so `index` and `layer_index` are now both `-1`.
+- `POST /api/cuts/{index}` returned `409` instead of `404` for an
+  out-of-range index while the cut editor was open.
+- The state endpoints (`/api/status`, `/api/position`, `/api/jog/settings`,
+  `/api/units`, `/api/events/poll`) returned empty objects when no machine was
+  attached, and for a moment after the application started. They now always
+  answer: `connected` is `false`, and settings and units report real values.
+
 ### Changed (breaking)
 
 - `CncCut` no longer has `layer_index` or `priority` — operations attach to
@@ -40,7 +63,16 @@ breaking changes below ship without a version bump.
 
 - Units: positions and the `/api/project` `workspace` are always in mm;
   MillMage operation `settings` are always mm and mm/s. LightBurn cut values
-  and the MillMage `tool` block use display units.
+  and the MillMage `tool` block use display units, read from `units` and
+  `distance_units`. `/api/project` `units.distance` is a translated UI label
+  for display only, not for conversion.
+- `GET /api/status` answers with `connected: false` rather than failing when
+  no machine is attached.
+- `POST /api/file/open` is served by the application's own API surface only.
+- The **Show Secret…** button appears only while network access is enabled,
+  and the dialog is **Manage API Security** (`docs/authentication.md`).
+- Connection refused and `401` mean different things; the authentication
+  failure table now distinguishes them.
 - `JobState.progress` is optional — absent while idle and on controllers that
   can't report execution progress (e.g. Ruida during a cut).
 - `Position` omits any axis the controller doesn't report.
