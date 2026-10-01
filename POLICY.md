@@ -30,6 +30,8 @@ The APIs are intended to assist workflows and integrations. They are not intende
 
 Users remain solely responsible for the safe operation of all equipment connected to or controlled through LightBurn or MillMage.
 
+Where supported, APIs may permit modification of application or project data, including job parameters. Such modification is distinct from machine control and does not transfer responsibility for those settings from the operator to LightBurn Software. See [SAFETY.md](SAFETY.md) for operator-review guidance.
+
 ---
 
 ## Remote Operation

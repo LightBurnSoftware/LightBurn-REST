@@ -102,6 +102,11 @@ you need. See [Capabilities](capabilities.md) for the per-endpoint breakdown.
 - **Not version-stable yet.** Behaviour may change between application
   releases — see [Versioning](versioning.md).
 
+For supported API functionality that supplies or modifies operational parameters,
+the operator must review and verify the resulting job and its settings in LightBurn
+or MillMage before running it. See
+[API-Modified Job Settings](../SAFETY.md#api-modified-job-settings).
+
 ## Real-time updates
 
 State changes are available two ways: a Server-Sent Events stream

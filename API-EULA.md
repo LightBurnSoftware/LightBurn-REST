@@ -1,6 +1,6 @@
 # LightBurn and MillMage API EULA
 
-_Last Updated: June 2026_
+_Last Updated: September 30, 2026_
 
 ---
 
@@ -57,6 +57,7 @@ You are solely responsible for:
 - Any software, integrations, scripts, automations, or workflows you create using the APIs.
 - The security of systems, networks, credentials, and devices that interact with the APIs.
 - Verifying the accuracy, suitability, and safety of any data exchanged through the APIs.
+- Reviewing and verifying any job settings, cut parameters, machine parameters, or other operational data received, created, modified, or transmitted through the APIs before operating connected equipment.
 - Compliance with applicable laws, regulations, industry standards, and safety requirements.
 
 You assume all risks associated with your use of the APIs.

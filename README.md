@@ -20,7 +20,7 @@ Example code may be provided under separate licenses as identified within this r
 
 ---
 
-## Current Scope
+## Intended Use
 
 The APIs are primarily intended for:
 
@@ -44,7 +44,7 @@ The APIs are provided to support integrations and workflows. They are not safety
 
 Users remain responsible for the safe operation of all equipment connected to or used with LightBurn or MillMage.
 
-Please review `SAFETY.md` before implementing machine-related workflows.
+Please review [SAFETY.md](SAFETY.md) before implementing machine-related workflows.
 
 ---
 

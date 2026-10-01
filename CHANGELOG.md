@@ -60,6 +60,18 @@ breaking changes below ship without a version bump.
 - Capabilities, API reference, overview, README, getting started and
   uploading guides updated for `project_write`, units and event behaviour.
 
+### Safety & policy
+
+- Clarified operator responsibility for reviewing and verifying API-modified
+  job settings and operational parameters before machine operation
+  (`SAFETY.md`, `API-EULA.md`, `POLICY.md`, `docs/overview.md`).
+- Renamed the README's scope section to Intended Use and linked safety guidance.
+- Expanded responsible-disclosure coverage for unauthorized access, capability
+  bypasses/escalation, secret or token exposure, and unexpected parameter changes
+  (`DISCLOSURE.md`).
+- Simplified the examples' GPL-3.0 licensing explanation without changing the
+  MIT default or per-subdirectory licenses (`examples/README.md`).
+
 ### Examples
 
 - Inkscape extensions: read the `/api/project` workspace size as mm. They

@@ -3,8 +3,12 @@
 LightBurn Software welcomes reports relating to:
 
 - Security vulnerabilities
-- Authentication weaknesses
-- Authorization bypasses
+- Unauthorized API access
+- Authentication weaknesses or bypasses
+- Authorization or capability bypasses
+- Secret or token exposure
+- Capability escalation
+- Unexpected modification of project or machine-related parameters
 - API implementation flaws
 - Dangerous or unexpected machine interactions
 - Documentation errors affecting safe use

@@ -205,6 +205,7 @@ any follow-up calls.
 Cut settings control laser power, speed, feed rates and other parameters that
 directly affect how a machine behaves. Validate values before sending them,
 test changes on non-critical material, and have the operator review settings
-before a job runs. See [`../SAFETY.md`](../SAFETY.md).
+before a job runs. See
+[API-Modified Job Settings](../SAFETY.md#api-modified-job-settings).
 
 See [`openapi.yaml`](openapi.yaml) for the full request and response schemas.

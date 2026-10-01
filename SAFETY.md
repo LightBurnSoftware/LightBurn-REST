@@ -25,6 +25,18 @@ Before operating any machine, users should ensure that:
 
 ---
 
+## API-Modified Job Settings
+
+Where supported, API functionality that permits modification of project or job settings may affect operational parameters such as speed, power, passes, or other cut settings.
+
+Before running a job, the operator must review and verify in LightBurn or MillMage all settings created, supplied, or modified through the API. API-provided values must not be assumed to be correct, safe, or appropriate for a particular machine, material, tool, or process.
+
+The intended workflow is for an integration to prepare or modify the project/settings, for the operator to review the resulting job and its settings in LightBurn or MillMage, and for the operator to start the job only after determining that it is safe to run.
+
+Automation does not replace operator judgment or supervision. The operator remains responsible for determining that the resulting job is safe to run.
+
+---
+
 ## Supervision
 
 Machine operation should be supervised by a responsible operator who can immediately respond to unexpected behavior, machine faults, fire risks, material issues, or other unsafe conditions.
