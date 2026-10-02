@@ -11,6 +11,11 @@ breaking changes below ship without a version bump.
 
 ### Added
 
+- `GET /api/overlay` — the camera overlay drawn on the workspace, as a PNG —
+  and `GET /api/overlay/metadata` for its size, workspace placement and a
+  `revision` change token. LightBurn only; MillMage returns `404`. Reading
+  either endpoint never causes the application to capture a new frame; both
+  return only what is already in memory.
 - `distance_units` (`mm` / `in`) on `GET /api/units`, `GET /api/jog/settings`
   and the `settings` event, alongside `units`.
 - `in/s` added to the `units` enum.
@@ -52,6 +57,11 @@ breaking changes below ship without a version bump.
 
 ### Changed (breaking)
 
+- The `project` capability now also grants the camera overlay endpoints.
+  Existing tokens holding `project` gain access to camera imagery without
+  re-pairing, so a token issued before this release can read a picture of the
+  user's machine area. Integrators requesting `project` should say so in their
+  own documentation.
 - `CncCut` no longer has `layer_index` or `priority` — operations attach to
   shapes and run in list order (`index`).
 - `CncCut` no longer has top-level `vacuum` and `coolant`; they are now keys in

@@ -965,6 +965,96 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/overlay:
+    get:
+      summary: Camera overlay image
+      description: |
+        The camera overlay currently drawn on the workspace, as a PNG.
+
+        **LightBurn only.** MillMage returns 404.
+
+        Returns only what is already in memory — requesting this never makes
+        the application capture a new frame. If no overlay is loaded the
+        response is 404 with a JSON error body (note the error content type
+        differs from the `image/png` success body).
+
+        Orientation matches the application's **File → Save Background
+        Capture** output.
+
+        Use `GET /api/overlay/metadata` first if you want the size, placement
+        or revision without transferring the image.
+      responses:
+        '200':
+          description: The overlay image
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No camera overlay image is loaded, or not LightBurn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/overlay/metadata:
+    get:
+      summary: Camera overlay metadata
+      description: |
+        Size, workspace placement and a change token for the camera overlay,
+        without transferring the image. **LightBurn only.** Same 404 behaviour
+        as `GET /api/overlay`, and likewise never triggers a capture.
+      responses:
+        '200':
+          description: Overlay metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: string
+                    enum: [overhead, head]
+                    description: Which camera layer the image came from.
+                  width:
+                    type: integer
+                    description: Image width in pixels.
+                  height:
+                    type: integer
+                    description: Image height in pixels.
+                  bounds:
+                    type: object
+                    description: Placement on the workspace, in mm.
+                    properties:
+                      x: { type: number }
+                      y: { type: number }
+                      width: { type: number }
+                      height: { type: number }
+                  revision:
+                    type: string
+                    description: >
+                      Opaque token that changes whenever the overlay is
+                      replaced. Use it to skip re-fetching an unchanged image.
+                      Not stable across application restarts — treat a
+                      changed value as "refetch", never as a persistent id.
+              example:
+                source: overhead
+                width: 1018
+                height: 1074
+                bounds: { x: 46.421722, y: 26.932907, width: 162.619812, height: 171.565491 }
+                revision: "43284680410162"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No camera overlay image is loaded, or not LightBurn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /api/material-library:
     get:
       summary: Loaded material / operations library

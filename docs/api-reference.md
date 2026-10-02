@@ -41,6 +41,8 @@ most recently focused window — see [Overview](overview.md#multiple-instances).
 | `GET /api/cuts` | Cut settings for all layers or operations (product-specific) |
 | `GET /api/cuts/{index}` | A single cut entry by flat index |
 | `GET /api/material-library` | Loaded material / operations library |
+| `GET /api/overlay` | Camera overlay image as PNG (LightBurn only) |
+| `GET /api/overlay/metadata` | Overlay size, workspace placement and change token |
 
 ## `upload` capability — submit files
 
@@ -90,7 +92,11 @@ is open.
   body and validates the whole body first — on any error nothing changes.
 - **Product differences:** `GET /api/cuts`, `POST /api/cuts/{index}` and
   `GET /api/material-library` use product-specific shapes — dispatch on the
-  `product` field.
+  `product` field. The overlay endpoints are LightBurn-only and return `404`
+  on MillMage.
+- **Binary responses:** `GET /api/overlay` returns `image/png` on success but
+  `application/json` on error — branch on the status code, not the content
+  type.
 
 ## Stability
 
