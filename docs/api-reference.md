@@ -10,6 +10,9 @@ All endpoints except `GET /` and `POST /api/connect` require a Bearer token
 `localhost` with the host's address when the application has network access
 enabled; `POST /api/connect` remains localhost-only regardless.
 
+With more than one copy of the same product running, the port is served by the
+most recently focused window — see [Overview](overview.md#multiple-instances).
+
 ## Pairing & service (no auth)
 
 | Method & path | Description |
@@ -33,11 +36,13 @@ enabled; `POST /api/connect` remains localhost-only regardless.
 
 | Method & path | Description |
 |---------------|-------------|
-| `GET /api/project` | Project metadata: filename, units, workspace, device |
+| `GET /api/project` | Project metadata: filename, units, workspace, device (including laser source capabilities) |
 | `GET /api/layers` | All 32 layer definitions |
-| `GET /api/cuts` | Cut settings for all layers (product-specific) |
+| `GET /api/cuts` | Cut settings for all layers or operations (product-specific) |
 | `GET /api/cuts/{index}` | A single cut entry by flat index |
 | `GET /api/material-library` | Loaded material / operations library |
+| `GET /api/overlay` | Camera overlay image as PNG (LightBurn only) |
+| `GET /api/overlay/metadata` | Overlay size, workspace placement and change token |
 
 ## `upload` capability — submit files
 
@@ -49,18 +54,49 @@ enabled; `POST /api/connect` remains localhost-only regardless.
 See [Uploading files](uploading.md) for the request body, `X-Filename`, and the
 placement headers (`X-Position-X/Y`, `X-Origin`, `X-Group-Shapes`).
 
+## `project_write` capability — change project data
+
+| Method & path | Description |
+|---------------|-------------|
+| `POST /api/cuts/{index}` | Partial update of one cut entry; returns the updated entry |
+
+See [Cut settings](cut-settings.md) for the fields each product accepts, how
+changes are validated and applied, and the `409` returned while the cut editor
+is open.
+
 ## Conventions
 
 - **Auth:** `Authorization: Bearer <token>`. Every authorization failure returns
   a bare `401` — missing, invalid, expired, revoked, outside your granted
   capability, or from off-machine while network access is off. The reasons are
   deliberately indistinguishable; don't branch on them.
-- **Units:** distance and speed values use the user's current display units;
-  read them from `GET /api/units` or `GET /api/project`.
+- **Units:** positions (`/api/position`, the `position` event) and the
+  `/api/project` `workspace` are always in mm. LightBurn cut values, the
+  MillMage `tool` block, and jog settings use the user's display units — read
+  those from `GET /api/units`, which reports the speed unit as `units` and the
+  distance unit as `distance_units`. The two are independent: the application
+  supports modes that pair inch distances with metric speeds, so never infer
+  one from the other. MillMage operation `settings` are always mm and mm/s.
+  (`/api/project` `units.distance` is a translated UI label for display only —
+  don't parse it.)
+- **Optional fields:** a field the application can't report is omitted rather
+  than zeroed — for example an axis the controller doesn't report, or job
+  `progress` while idle or on controllers that don't report it. Treat absence
+  as "unknown".
 - **Async import:** uploads return `202 Accepted` immediately; the result
   arrives later as a `file_imported` event on `GET /api/events`.
-- **Product differences:** `GET /api/cuts` and `GET /api/material-library`
-  return product-specific shapes — dispatch on the `product` field.
+- **Events:** the SSE stream opens with a `:connected` comment. "On change"
+  events aren't replayed to a new subscriber, so call `GET /api/events/poll`
+  once after connecting to get the current state.
+- **Partial updates:** `POST /api/cuts/{index}` changes only the fields in the
+  body and validates the whole body first — on any error nothing changes.
+- **Product differences:** `GET /api/cuts`, `POST /api/cuts/{index}` and
+  `GET /api/material-library` use product-specific shapes — dispatch on the
+  `product` field. The overlay endpoints are LightBurn-only and return `404`
+  on MillMage.
+- **Binary responses:** `GET /api/overlay` returns `image/png` on success but
+  `application/json` on error — branch on the status code, not the content
+  type.
 
 ## Stability
 

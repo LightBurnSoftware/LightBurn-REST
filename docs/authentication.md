@@ -39,9 +39,14 @@ Provision it in two steps instead:
 
 1. Pair once on the machine running LightBurn / MillMage — either from a local
    tool, or with any HTTP client (`curl`) against `localhost`.
-2. In the application, open **Manage authorizations**, select the entry, and
-   choose **Show Secret**. Transfer it to the other machine over a channel you
-   trust.
+2. In the application, enable **Settings → Extensions → Allow API Access From
+   Network**, then open **Manage API Security** from the same page, select the
+   entry, and choose **Show Secret…**. Transfer it to the other machine over a
+   channel you trust.
+
+> The **Show Secret…** button only appears while network access is enabled.
+> With the API on loopback there is no off-machine client to hand a secret to,
+> so the button is hidden. If you can't see it, check that setting first.
 
 The secret is not machine-bound: once issued it works from anywhere the
 listener is reachable. Treat it as a password in transit — revoke it from the
@@ -91,16 +96,21 @@ flowchart TD
 | Token for an expired minute | `401` | Recompute (clock drift > 1 min) |
 | Secret revoked / stale | `401` | Discard the secret and re-pair |
 | Endpoint outside granted scope | `401` | Re-pair with the needed capability |
-| Request from off-machine while network access is off | `401` | Enable network access in the app, or call from localhost |
+| Request from off-machine while network access is off | Connection refused | Enable network access in the app, or call from localhost |
+| Secret paired with a different running copy | `401` | Pair again — see [Multiple instances](overview.md#multiple-instances) |
 | `POST /api/connect` from off-machine | `403` | Pair on the machine running the app |
 | Pairing declined or timed out | `403` | Prompt the user and retry `POST /api/connect` |
 
-Note the first four are **deliberately indistinguishable**. Every
-authorization failure on a gated endpoint returns a bare `401`, whether the
-token is absent, expired, revoked, lacking the capability, or arriving from a
-disallowed origin. The API does not tell an unauthenticated caller which of
-those it is, so don't branch on the reason — on any `401`, recompute the token
-once, and if it persists, re-pair.
+Every `401` above is **deliberately indistinguishable** from the others. A
+gated endpoint returns a bare `401` whether the token is absent, expired,
+revoked, lacking the capability, unknown to the copy that answered, or
+arriving from a disallowed origin. The API does not tell an unauthenticated
+caller which it is, so don't branch on the reason — on any `401`, recompute
+the token once, and if it persists, re-pair.
+
+Connection refused is a different signal: nothing is listening on that address.
+Usually that means the application isn't running, or it is bound to loopback
+and you called it from another machine. It is not an authorization failure.
 
 ## Security notes
 

@@ -17,7 +17,7 @@ import inkex
 import lightburn_client as lb
 from lightburn_common import (
     ROLE_ATTR, PRODUCT_ATTR, WORKSPACE_ATTR, DEVICE_ATTR, FRAME_ROLE,
-    PRODUCT_COLORS, to_mm,
+    PRODUCT_COLORS,
 )
 
 
@@ -42,10 +42,9 @@ class DrawWorkspaceFrame(inkex.EffectExtension):
             raise inkex.AbortExtension(str(exc))
 
         try:
-            ws = project["workspace"]["workpiece_size"]
-            unit = project.get("units", {}).get("distance", "mm")
-            w_mm = to_mm(float(ws["x"]), unit)
-            h_mm = to_mm(float(ws["y"]), unit)
+            ws = project["workspace"]["workpiece_size"]   # always mm
+            w_mm = float(ws["x"])
+            h_mm = float(ws["y"])
         except (KeyError, TypeError, ValueError):
             raise inkex.AbortExtension("Could not read workspace size from the app.")
         device = project.get("device", {}).get("name", "")

@@ -2,8 +2,8 @@
 
 The LightBurn / MillMage REST API is an HTTP interface exposed by the desktop
 applications. It lets external programs read application and machine state,
-read project data, and submit files for import — over plain HTTP, on the
-loopback interface by default.
+read project data, adjust cut settings, and submit files for import — over
+plain HTTP, on the loopback interface by default.
 
 This page is the conceptual map. For step-by-step usage see
 [Getting started](getting-started.md); for the exhaustive contract see
@@ -12,7 +12,7 @@ This page is the conceptual map. For step-by-step usage see
 ## Where the API lives
 
 The API is served by the running desktop application — there is no separate
-server to start. It listens whenever the app is open:
+server to start. It listens while the app is open:
 
 | Application | Base URL |
 |-------------|----------|
@@ -30,6 +30,23 @@ Pairing is the exception: `POST /api/connect` is **always** restricted to
 localhost, even with network access enabled, and returns `403` otherwise. A
 remote client must therefore be paired locally first, then use the resulting
 secret from wherever it runs. See [Authentication](authentication.md).
+
+### Multiple instances
+
+One running copy of the application serves the port at a time. Users can open
+several copies at once, which has two consequences worth coding for:
+
+- **The listener follows the foreground window.** Whichever copy was most
+  recently brought to the front serves the port. Switching windows moves the
+  listener, and a request issued during the switch may fail to connect — retry
+  rather than treating it as fatal.
+- **A secret belongs to the copy you paired with.** Another copy may not
+  recognise it until it reloads its settings. If a secret that was working
+  starts returning `401` on a machine with several copies open, pair again
+  rather than assuming it was revoked.
+
+Neither applies to a single running instance, which serves the port for as
+long as it is open.
 
 ```mermaid
 flowchart LR
@@ -55,7 +72,7 @@ flowchart LR
    secret (HMAC-SHA256 over the current minute). See
    [Authentication](authentication.md).
 3. **Call endpoints** within your granted capabilities — read state, read
-   project data, or upload files.
+   project data, change cut settings, or upload files.
 
 ```mermaid
 sequenceDiagram
@@ -83,27 +100,65 @@ you need. See [Capabilities](capabilities.md) for the per-endpoint breakdown.
 | `state`   | Read-only machine and job state (status, position, units, events) |
 | `project` | Read-only project data (project, layers, cuts, material library) |
 | `upload`  | Submit files for import (`/api/file/upload`, `/api/file/open`) |
+| `project_write` | Change project data — currently cut settings (`POST /api/cuts/{index}`) |
 
 ## What the API is for
 
 - Reading application and machine state
 - Querying project and material information
+- Adjusting layer and operation cut settings
 - Submitting designs for import
 - Building companion apps, automation, and workflow integrations
 
 ## What the API is not
 
 - **Not a machine-control interface.** The public API does not expose endpoints
-  that move or operate machinery.
+  that move or operate machinery. Changing cut settings edits the project only
+  — it doesn't start, stop or alter a job already sent to the machine.
 - **Not a safety system.** See [`../SAFETY.md`](../SAFETY.md).
 - **Not version-stable yet.** Behaviour may change between application
   releases — see [Versioning](versioning.md).
+
+For supported API functionality that supplies or modifies operational parameters,
+the operator must review and verify the resulting job and its settings in LightBurn
+or MillMage before running it. See
+[API-Modified Job Settings](../SAFETY.md#api-modified-job-settings).
 
 ## Real-time updates
 
 State changes are available two ways: a Server-Sent Events stream
 (`GET /api/events`) and a polling fallback (`GET /api/events/poll`). Import
-results arrive as a `file_imported` event after an upload.
+results arrive as a `file_imported` event after an upload or open.
+
+Position and job events stream at about 2 Hz; settings, overrides, aux and
+connection events are sent only when they change, and aren't replayed to a new
+subscriber. A client that opens the stream should call `GET /api/events/poll`
+once to learn the current state, then follow the stream from there.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as LightBurn / MillMage
+    C->>A: GET /api/events  (SSE)
+    A-->>C: :connected
+    C->>A: GET /api/events/poll
+    A-->>C: current snapshot
+    loop while connected
+        A-->>C: position / job (~2 Hz)
+        A-->>C: settings / overrides / aux / connection (on change)
+        A-->>C: :keepalive (every 30 s)
+    end
+```
+
+## Units
+
+Positions and the project workspace are always reported in mm. Cut values on
+LightBurn, the MillMage tool block, and jog settings use the user's display
+units, which `GET /api/units` reports as two independent fields — `units` for
+speed, `distance_units` for distance. They are separate because the
+application supports mixed modes that pair inch distances with metric speeds,
+so one cannot be inferred from the other. MillMage operation settings are
+always mm and mm/s. See [Cut settings](cut-settings.md#units).
 
 ## Next steps
 
@@ -111,5 +166,6 @@ results arrive as a `file_imported` event after an upload.
 - [Authentication](authentication.md) — the token scheme in detail
 - [Capabilities](capabilities.md) — scopes and endpoints
 - [Uploading files](uploading.md) — import and placement
+- [Cut settings](cut-settings.md) — read and change layer / operation settings
 - [API reference](api-reference.md) — every endpoint
 - [Versioning](versioning.md) — how the API will evolve

@@ -15,7 +15,7 @@ import lightburn_client as lb
 from dedupe import dedupe, to_d
 from lightburn_common import (
     ROLE_ATTR, PRODUCT_ATTR, WORKSPACE_ATTR, DEVICE_ATTR, FRAME_ROLE,
-    bbox_of_points, uniform_scale, workspace_placement, aspect_mismatch, to_mm,
+    bbox_of_points, uniform_scale, workspace_placement, aspect_mismatch,
 )
 
 
@@ -169,10 +169,9 @@ class LightBurnSend(inkex.EffectExtension):
         stored_ws = source.get(WORKSPACE_ATTR)
         project = lb.get_project(base_url, secret)
         live_dev = project.get("device", {}).get("name", "")
-        ws = project.get("workspace", {}).get("workpiece_size", {})
-        unit = project.get("units", {}).get("distance", "mm")
+        ws = project.get("workspace", {}).get("workpiece_size", {})   # always mm
         try:
-            live_ws = f"{to_mm(float(ws['x']), unit):g}x{to_mm(float(ws['y']), unit):g}"
+            live_ws = f"{float(ws['x']):g}x{float(ws['y']):g}"
         except (KeyError, TypeError, ValueError):
             live_ws = ""
         dev_bad = stored_dev and live_dev and stored_dev != live_dev

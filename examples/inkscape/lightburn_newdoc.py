@@ -11,7 +11,7 @@ open document; they can't spawn a new window, so make a new document first.)
 import inkex
 
 import lightburn_client as lb
-from lightburn_common import to_mm, WORKSPACE_ATTR, PRODUCT_ATTR, DEVICE_ATTR
+from lightburn_common import WORKSPACE_ATTR, PRODUCT_ATTR, DEVICE_ATTR
 
 
 class NewDocFromWorkspace(inkex.EffectExtension):
@@ -34,10 +34,9 @@ class NewDocFromWorkspace(inkex.EffectExtension):
             raise inkex.AbortExtension(str(exc))
 
         try:
-            ws = project["workspace"]["workpiece_size"]
-            unit = project.get("units", {}).get("distance", "mm")
-            w = to_mm(float(ws["x"]), unit)
-            h = to_mm(float(ws["y"]), unit)
+            ws = project["workspace"]["workpiece_size"]   # always mm
+            w = float(ws["x"])
+            h = float(ws["y"])
         except (KeyError, TypeError, ValueError):
             raise inkex.AbortExtension("Could not read workspace size from the app.")
 
