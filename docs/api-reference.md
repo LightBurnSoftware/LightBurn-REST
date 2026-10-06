@@ -94,6 +94,11 @@ is open.
   `GET /api/material-library` use product-specific shapes — dispatch on the
   `product` field. The overlay endpoints are LightBurn-only and return `404`
   on MillMage.
+- **Machine differences:** LightBurn cut entries carry a `profile` of `galvo`,
+  `gantry` or `unknown`, and exactly one matching `params.galvo` /
+  `params.gantry` block. Switching the active device changes the shape for an
+  unchanged project, so don't cache it — see
+  [Cut settings](cut-settings.md#galvo-or-gantry).
 - **Binary responses:** `GET /api/overlay` returns `image/png` on success but
   `application/json` on error — branch on the status code, not the content
   type.

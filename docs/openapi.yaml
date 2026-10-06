@@ -192,7 +192,7 @@ components:
 
     LaserCut:
       type: object
-      required: [index, name, kind, layer_index, enabled, priority, params]
+      required: [index, name, kind, layer_index, enabled, priority, profile, params]
       properties:
         index: { type: integer }
         name: { type: string }
@@ -200,6 +200,52 @@ components:
         layer_index: { type: integer }
         enabled: { type: boolean }
         priority: { type: integer }
+        in_use:
+          type: boolean
+          description: >
+            True if any shape in the project uses this cut setting. Counted per
+            cut setting across every page, so a normal and an image cut sharing
+            a layer are reported separately — which the per-layer count in
+            `GET /api/layers` cannot do.
+        shape_count:
+          type: integer
+          description: Number of shapes using this cut setting.
+        profile:
+          type: string
+          enum: [galvo, gantry, unknown]
+          description: >
+            Which machine the settings should be read as, and therefore which
+            of `params.galvo` / `params.gantry` is present. Derived from the
+            selected device profile, so it is correct with no machine
+            physically connected. `unknown` means no device profile has been
+            set up yet. Switching the active device changes this, and the block
+            that comes with it, for an unchanged project — do not cache the
+            response shape.
+        global_passes:
+          type: integer
+          minimum: 1
+          description: >
+            Galvo only; absent otherwise. Repeats the entire sub-layer stack,
+            so the real number of passes is `global_passes` multiplied by the
+            per-layer `num_passes`.
+        negative: { type: boolean }
+        pass_through: { type: boolean }
+        enable_cleanup: { type: boolean }
+        sort_within_layer: { type: boolean }
+        tabs:
+          type: object
+          description: Tab (bridge) settings for this cut.
+          properties:
+            enabled: { type: boolean }
+            manual: { type: boolean, description: Manual placement rather than automatic. }
+            size: { type: number }
+            use_spacing: { type: boolean, description: "Use `spacing`; otherwise `count`." }
+            count: { type: integer, description: "-1 when unset." }
+            count_max: { type: integer, description: "-1 when unset." }
+            limit_max: { type: boolean }
+            spacing: { type: number }
+            skip_inner: { type: boolean }
+            cut_power: { type: number }
         mode:
           type: string
           enum: [cut, scan, offset, image, tool]
@@ -217,6 +263,9 @@ components:
                 max_power: { type: number }
                 dpi: { type: number }
                 dither_mode: { type: string }
+                cells_per_inch: { type: number, description: Halftone cell size. }
+                halftone_angle: { type: number }
+                link_dpi_to_interval: { type: boolean }
                 max_power_2: { type: number }
                 laser1_enabled: { type: boolean }
                 laser2_enabled: { type: boolean }
@@ -254,33 +303,125 @@ components:
       type: object
       description: |
         Vector cut params, shared by a cut's base layer and its sub-layers.
-        Source and pulse fields are always present; `/api/project`
-        `device.laser` says which apply to the connected device.
+
+        Exactly one machine-specific block is present — `galvo` or `gantry`,
+        matching the entry's `profile`. The other machine's values remain
+        stored in the project but are not reported. When `profile` is
+        `unknown`, neither block is present.
       properties:
         speed: { type: number }
         min_power: { type: number }
         max_power: { type: number }
-        num_passes: { type: integer }
-        z_offset: { type: number }
-        frequency:
-          type: integer
-          description: Hz. Also the galvo pulse frequency when the device supports it.
-        kerf: { type: number }
-        bi_directional: { type: boolean }
-        cross_hatch: { type: boolean }
         min_power_2: { type: number, description: Min power for laser 2 (dual-source). }
         max_power_2: { type: number, description: Max power for laser 2 (dual-source). }
+        default_speed: { type: boolean, description: Use the device default speed. }
+        default_power1: { type: boolean }
+        default_power2: { type: boolean }
         laser1_enabled: { type: boolean, description: Laser 1 fires on this layer (dual-source). }
         laser2_enabled: { type: boolean, description: Laser 2 fires on this layer (dual-source). }
         alt_source:
           type: boolean
           description: Galvo only — use the alternate (second) laser source.
+        num_passes: { type: integer, minimum: 1 }
+        z_offset: { type: number }
+        z_per_pass: { type: number, description: Z movement applied per pass. }
+        u_offset: { type: number, description: For machines with a U axis. }
+        angle_per_pass: { type: number, description: Scan angle rotation per pass, in degrees. }
+        kerf: { type: number }
+        frequency:
+          type: integer
+          description: Hz. Also the galvo pulse frequency when the device supports it.
+        override_frequency:
+          type: boolean
+          description: >
+            Whether `frequency` is applied at all. When false the device
+            default is used and the reported `frequency` has no effect — set
+            this alongside `frequency` when writing.
         q_pulse_width:
           type: number
           description: MOPA pulse width in ns (when `device.laser.mopa_source` is not 0).
         fiber_pulse_width:
           type: integer
           description: Fiber pulse width in ns, for gantry fiber sources (`laser1_fiber` / `laser2_fiber`).
+        bi_directional: { type: boolean }
+        cross_hatch: { type: boolean }
+        flood_fill: { type: boolean }
+        auto_rotate: { type: boolean, description: Continuous rotation between passes. }
+        scan_opt:
+          type: string
+          enum: [individual, by_group, merge_all]
+          description: How shapes are grouped when scanning.
+        angle: { type: number, description: Scan angle in degrees. }
+        interval: { type: number, description: Scan line interval. }
+        dot_width: { type: number }
+        use_dot_correction: { type: boolean }
+        ramp_length: { type: number }
+        ramp_outer: { type: boolean }
+        perforate: { type: boolean }
+        perf_len: { type: number }
+        perf_skip: { type: number }
+        tabs_enabled: { type: boolean }
+        overscan: { type: boolean }
+        overscan_percent: { type: number }
+        galvo:
+          $ref: '#/components/schemas/LaserGalvoParams'
+        gantry:
+          $ref: '#/components/schemas/LaserGantryParams'
+
+    LaserGalvoParams:
+      type: object
+      description: >
+        Present only when the entry's `profile` is `galvo`. `start_delay` and
+        `end_delay` are dot delays on a galvo; the same names mean pauses in
+        `LaserGantryParams`.
+      properties:
+        override_timings:
+          type: boolean
+          description: Gate for the timing constants below.
+        laser_on_tc: { type: integer, description: Laser-on time constant, microseconds. }
+        laser_off_tc: { type: integer, description: Laser-off time constant, microseconds. }
+        end_tc: { type: integer, description: End time constant, microseconds. }
+        polygon_tc: { type: integer, description: Polygon time constant, microseconds. }
+        jump_speed: { type: number }
+        min_jump_delay: { type: integer, description: Microseconds. }
+        max_jump_delay: { type: integer, description: Microseconds. }
+        jump_dist_limit: { type: number }
+        start_delay: { type: number, description: Dot delay at path start. }
+        end_delay: { type: number, description: Dot delay at path end. }
+        wobble_enable: { type: boolean }
+        wobble_step: { type: number }
+        wobble_size: { type: number }
+
+    LaserGantryParams:
+      type: object
+      description: >
+        Present only when the entry's `profile` is `gantry`. `start_delay` and
+        `end_delay` are pauses on a gantry; the same names mean dot delays in
+        `LaserGalvoParams`.
+      properties:
+        run_blower: { type: boolean, description: Air assist. }
+        auto_blower: { type: boolean }
+        blower_speed_override: { type: boolean }
+        blower_speed_percent: { type: number }
+        cut_through_start: { type: boolean }
+        cut_through_end: { type: boolean }
+        through_power: { type: number }
+        through_power_2: { type: number }
+        start_delay: { type: number, description: Pause at path start. }
+        end_delay: { type: number, description: Pause at path end. }
+        lead_in: { type: boolean }
+        lead_out: { type: boolean }
+        lead_angle: { type: number, description: Degrees. }
+        lead_length: { type: number }
+        lead_style: { type: string, enum: [line, arc] }
+        enable_ppi: { type: boolean }
+        ppi: { type: integer, description: Pulses per inch. }
+        dot_mode: { type: boolean }
+        dot_time: { type: number }
+        dot_spacing: { type: number }
+        force_constant_power: { type: boolean }
+        dcc_value: { type: number }
+        overcut: { type: number }
 
     LaserCuts:
       type: object
@@ -821,6 +962,20 @@ paths:
 
         LightBurn values and the MillMage `tool` block use the user's
         display units; MillMage `settings` use mm and mm/s.
+
+        Each LightBurn entry carries a `profile` of `galvo`, `gantry` or
+        `unknown`, and exactly one matching machine-specific block inside
+        `params`. The project stores both sets of settings whatever machine is
+        selected, so the discriminator is what tells you which block the
+        machine actually reads. It comes from the selected device profile and
+        is correct with no machine connected. **Switching the active device
+        changes the shape for an unchanged project — do not cache it.**
+
+        Use each entry's `in_use` / `shape_count` to find the cut settings
+        actually used by the project. Prefer these over joining `/api/layers`
+        on `layer_index`: they are counted per cut setting across every page,
+        so a normal and an image cut sharing a layer are reported separately,
+        which the per-layer count cannot do.
       responses:
         '200':
           description: Cut settings snapshot
@@ -885,12 +1040,24 @@ paths:
           field), and existing `sub_layers` addressed by `index` (`name`,
           `enabled`, `mode`, `params`). Adding or removing sub-layers is
           not supported.
+        - Cut-level fields: `negative`, `pass_through`, `enable_cleanup`,
+          `sort_within_layer`, `tabs`, and `global_passes` on galvo.
         - `kind: "image"` cuts: `name`, `enabled`, and `params.speed`,
           `params.max_power`, `params.dither_mode` (one of the strings
           `GET` reports, e.g. `Stucki`), plus the source and pulse fields.
           `dpi` is read-only.
         - Powers (including `*_power_2`) are 0–100; `q_pulse_width` > 0;
           `fiber_pulse_width` a positive integer.
+
+        Machine-specific settings go in `params.galvo` or `params.gantry`,
+        and must match the entry's `profile`. Sending the block for the other
+        machine is a **400** rather than being ignored, so a request cannot
+        quietly fail to configure what you intended. `global_passes` is
+        likewise a 400 on a gantry device.
+
+        Set `params.override_frequency` alongside `params.frequency`: with the
+        override false the device default applies and the frequency you write
+        has no effect.
 
         Tool layers and internal cuts are rejected with 400.
 
@@ -915,11 +1082,26 @@ paths:
                 name: { type: string, minLength: 1 }
                 enabled: { type: boolean }
                 mode: { type: string, enum: [cut, scan, offset] }
+                in_use: { type: boolean, readOnly: true }
+                shape_count: { type: integer, readOnly: true }
+                profile: { type: string, readOnly: true }
+                global_passes:
+                  type: integer
+                  minimum: 1
+                  description: Galvo only; a 400 on a gantry device.
+                negative: { type: boolean }
+                pass_through: { type: boolean }
+                enable_cleanup: { type: boolean }
+                sort_within_layer: { type: boolean }
+                tabs:
+                  type: object
+                  description: Partial; only the keys sent are changed.
                 params:
                   type: object
                   description: |
-                    `LaserCutParams` fields for normal cuts; `speed`,
-                    `max_power`, `dither_mode` for image cuts.
+                    `LaserCutParams` fields for normal cuts, including at most
+                    one of `galvo` / `gantry` matching the entry's `profile`;
+                    `speed`, `max_power`, `dither_mode` for image cuts.
                 sub_layers:
                   type: array
                   items:
@@ -936,7 +1118,13 @@ paths:
                   type: object
                   description: MillMage only — see `CncCut.settings`.
             example:
-              params: { speed: 150, max_power: 65 }
+              params:
+                speed: 150
+                max_power: 65
+                override_frequency: true
+                frequency: 20000
+                gantry: { run_blower: true, enable_ppi: true, ppi: 250 }
+              tabs: { enabled: true, count: 4 }
               sub_layers:
                 - { index: 1, enabled: false }
       responses:

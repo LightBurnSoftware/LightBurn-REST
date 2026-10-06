@@ -39,15 +39,53 @@ The list is **fixed-size**, whether or not the layers are in use:
 | Last | 30 image cuts | `kind: "image"` |
 
 `index` and `layer_index` are different things: `index` is the entry's
-position in this list, `layer_index` is the layer slot on the desktop. To find
-the layers that are actually in use, read `GET /api/layers` and filter on
-`in_use == true`.
+position in this list, `layer_index` is the layer slot on the desktop.
+
+#### Which cuts are actually used
+
+Each entry carries `in_use` and `shape_count`. Filter on `in_use == true` to
+get the cut settings the project actually uses — the same set the
+application shows in its cut list.
+
+Use these rather than joining `GET /api/layers` on `layer_index`. The entry
+counts are per cut setting, across every page of the project, so a normal cut
+and an image cut sharing one layer are reported separately. The per-layer count
+cannot distinguish them: put a vector shape and an image both on C00 and the
+layer reports `shape_count: 2`, while the two cut entries each report `1`.
 
 Each normal cut reports its base layer in `mode` and `params`
 (`LaserCutParams`: speed, power, passes, frequency, …). Any additional
 sub-layers are in `sub_layers`, each with its own `index` (starting at `1`;
 the base layer is `0`), `name`, `enabled`, `mode` and `params`. The base layer
 is not repeated in `sub_layers`.
+
+#### Galvo or gantry
+
+Every entry carries a `profile`:
+
+| `profile` | Meaning |
+|-----------|---------|
+| `galvo` | `params.galvo` is present; `params.gantry` is not |
+| `gantry` | `params.gantry` is present; `params.galvo` is not |
+| `unknown` | No device profile set up yet; neither block is present |
+
+The project stores **both** sets of machine settings regardless of which
+machine is selected, so a cut setting is not intrinsically galvo or gantry.
+`profile` is what tells you which block the machine actually reads. It is
+derived from the selected device profile, so it is correct even with nothing
+physically connected.
+
+> **Don't cache the response shape.** Switching the active device changes
+> `profile` and the block that comes with it, for an unchanged project.
+
+`params.galvo` carries the timing constants (`laser_on_tc`, `laser_off_tc`,
+`end_tc`, `polygon_tc` and their `override_timings` gate), jump settings and
+wobble. `params.gantry` carries air assist, cut-through, lead in/out, PPI, dot
+mode, constant power and overcut.
+
+`start_delay` and `end_delay` appear in **both** blocks and mean different
+things: dot delays on a galvo, pauses on a gantry. They are named per block
+rather than shared so the meaning is never ambiguous.
 
 #### Which laser fields apply
 
@@ -159,9 +197,23 @@ sequenceDiagram
 **LightBurn, `kind: "normal"` cuts:**
 
 - `name`, `enabled`, `mode` (`cut`, `scan` or `offset`)
-- `params` — any `LaserCutParams` field
+- `params` — any `LaserCutParams` field, plus at most one machine block
+- `params.galvo` or `params.gantry` — must match the entry's `profile`
+- cut-level: `negative`, `pass_through`, `enable_cleanup`,
+  `sort_within_layer`, `tabs`, and `global_passes` on galvo
 - existing `sub_layers`, addressed by their `index`: `name`, `enabled`, `mode`,
   `params`. Sub-layers can't be added or removed.
+
+Sending the machine block that doesn't match `profile` is a **400**, not a
+silent no-op — a request cannot quietly fail to configure what you meant.
+`global_passes` on a gantry device is likewise a 400.
+
+**Set `override_frequency` when you set `frequency`.** With the override
+false the device default applies and the frequency you wrote has no effect.
+
+**`global_passes` multiplies passes.** On galvo it repeats the whole
+sub-layer stack, so total passes are `global_passes` x the per-layer
+`num_passes`.
 
 **LightBurn, `kind: "image"` cuts:**
 

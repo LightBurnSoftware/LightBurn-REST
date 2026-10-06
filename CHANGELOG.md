@@ -5,6 +5,65 @@ documentation and specification. Dates use ISO 8601.
 
 ## Unreleased
 
+Cut settings coverage. `GET /api/cuts` previously reported 16 of the roughly
+75 settings the application's cut-settings editors write; this release closes
+that gap and restructures the payload so clients can tell which settings apply
+to the attached machine. LightBurn only — MillMage is unchanged.
+
+The API is still pre-stable (see `docs/versioning.md`), so the breaking
+changes below ship without a version bump.
+
+### Added
+
+- `profile` on every LightBurn cut entry: `galvo`, `gantry` or `unknown`.
+  Derived from the selected device profile, so it is correct with no machine
+  physically connected.
+- `params.galvo` — 14 galvo-only settings: the timing constants
+  (`laser_on_tc`, `laser_off_tc`, `end_tc`, `polygon_tc`) and their
+  `override_timings` gate, jump settings, dot delays, and wobble.
+- `params.gantry` — 23 gantry-only settings: air assist, cut-through, lead
+  in/out, PPI, dot mode, constant power, overcut and U-axis offset.
+- Roughly 20 further `LaserCutParams` fields that apply to both machines,
+  including `z_per_pass`, `angle_per_pass`, `scan_opt`, `angle`, `interval`,
+  `ramp_length`, `perforate` / `perf_len` / `perf_skip`, `overscan`,
+  `flood_fill`, `auto_rotate` and the `default_*` flags.
+- `override_frequency` — the gate that decides whether `frequency` is applied
+  at all.
+- Cut-level fields: `negative`, `pass_through`, `enable_cleanup`,
+  `sort_within_layer`, a `tabs` object, and `global_passes` on galvo.
+- `in_use` and `shape_count` on every LightBurn cut entry. Counted per cut
+  setting across every page, so a normal and an image cut sharing a layer are
+  reported separately — which the per-layer count in `GET /api/layers` cannot
+  do. MillMage entries already carried `shape_count`.
+- `cells_per_inch`, `halftone_angle` and `link_dpi_to_interval` on image cuts.
+
+### Changed (breaking)
+
+- `LaserCutParams` now nests a machine-specific block. Exactly one of
+  `params.galvo` / `params.gantry` is present, matching the entry's `profile`;
+  the other machine's values remain stored in the project but are not
+  reported. Clients reading machine-specific settings must look inside the
+  block.
+- `POST /api/cuts/{index}` rejects the machine block that doesn't match
+  `profile` with `400`, rather than ignoring it. Sending `global_passes` to a
+  gantry device is likewise a `400`.
+- `start_delay` and `end_delay` moved into the machine blocks. They share
+  storage but mean different things — dot delays on a galvo, pauses on a
+  gantry — so they are now named per block rather than appearing once with an
+  ambiguous meaning.
+
+### Fixed
+
+- `frequency` was reported without `override_frequency`, so a client could not
+  tell whether a layer applied its frequency or inherited the device default,
+  and `POST`ing `frequency` could silently have no effect because the gate
+  stayed false.
+- `global_passes` was not reported at all. On a galvo it repeats the entire
+  sub-layer stack, so a client computing total passes from the response was
+  low by that factor.
+
+## Unreleased
+
 Specification synchronised with the current LightBurn / MillMage
 implementation. The API is still pre-stable (see `docs/versioning.md`), so the
 breaking changes below ship without a version bump.
