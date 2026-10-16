@@ -137,11 +137,26 @@ breaking changes below ship without a version bump.
   for display only, not for conversion.
 - `GET /api/status` answers with `connected: false` rather than failing when
   no machine is attached.
+- `connected` reports whether a device link is open at that moment, not
+  whether the laser is available. Ruida and some other non-GCode controllers
+  open the link just in time and close it afterwards, so `connected` is
+  `false` at rest for a healthy machine and toggles around activity. How long
+  a link is held open varies by controller and by how the device is
+  connected. It is not a presence or health check
+  (`GET /api/status`, the `connection` event, `docs/api-reference.md`).
 - `POST /api/file/open` is served by the application's own API surface only.
 - The **Show Secret…** button appears only while network access is enabled,
   and the dialog is **Manage API Security** (`docs/authentication.md`).
 - Connection refused and `401` mean different things; the authentication
-  failure table now distinguishes them.
+  failure table now distinguishes them. The API reference's auth convention
+  had kept listing an off-machine request as a `401` cause — verified against
+  a running instance: with network access off the connection is refused at the
+  TCP layer and no HTTP response is produced.
+- `profile` on a LightBurn cut entry implies a `params.galvo` / `params.gantry`
+  block only on `kind: "normal"` entries. Image cuts carry a `profile` too but
+  never a machine block, so the previous wording was wrong for half a default
+  63-entry list (`docs/cut-settings.md`, `docs/api-reference.md`,
+  `GET /api/cuts`, `LaserCut.profile`).
 - `JobState.progress` is optional — absent while idle and on controllers that
   can't report execution progress (e.g. Ruida during a cut).
 - `Position` omits any axis the controller doesn't report.
