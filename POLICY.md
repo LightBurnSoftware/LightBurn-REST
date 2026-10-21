@@ -112,6 +112,8 @@ Good-faith security research is appreciated.
 
 Feedback, bug reports, documentation improvements, examples, and integration ideas are welcome.
 
+These may be raised as issues on the API repository. Security vulnerabilities, and documentation errors that could affect safe machine operation, should be reported privately in accordance with SECURITY.md and DISCLOSURE.md rather than in a public issue.
+
 LightBurn Software may review and consider community contributions but is under no obligation to implement, support, maintain, or continue any proposed feature, behavior, endpoint, or enhancement.
 
 ---

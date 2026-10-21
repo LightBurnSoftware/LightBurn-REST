@@ -51,6 +51,15 @@ result arrives over the [`state`](capabilities.md) channel as a
 `{"success": false, "error": "…"}`. Request the `state` capability too if you
 need to confirm the import.
 
+**For `/api/file/open`, `success` is reliable only for native project files**
+(`.lbrn` / `.lbrn2` on LightBurn, `.mage` on MillMage). Opening a template
+(`.lbt`, `.mmt`) or any other format — SVG, DXF, images — reports
+`"success": false` even when the file opened correctly. For those formats,
+confirm the open with `GET /api/project` after the event instead: a successful
+open leaves `filename` empty and `shape_count` counts the opened shapes. The
+`error` text is translated for display, so don't match on it.
+`/api/file/upload` reports accurately for every format.
+
 **This event is only delivered on the `GET /api/events` SSE stream.** The
 `GET /api/events/poll` fallback returns a snapshot of current state — position,
 job, overrides, aux, connection, settings — and does not carry events, so a

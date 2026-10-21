@@ -137,13 +137,33 @@ breaking changes below ship without a version bump.
   for display only, not for conversion.
 - `GET /api/status` answers with `connected: false` rather than failing when
   no machine is attached.
+- `connected` reports whether a device link is open at that moment, not
+  whether the laser is available. Ruida and some other non-GCode controllers
+  open the link just in time and close it afterwards, so `connected` is
+  `false` at rest for a healthy machine and toggles around activity. How long
+  a link is held open varies by controller and by how the device is
+  connected. It is not a presence or health check
+  (`GET /api/status`, the `connection` event, `docs/api-reference.md`).
 - `POST /api/file/open` is served by the application's own API surface only.
 - The **Show Secret…** button appears only while network access is enabled,
   and the dialog is **Manage API Security** (`docs/authentication.md`).
 - Connection refused and `401` mean different things; the authentication
-  failure table now distinguishes them.
+  failure table now distinguishes them. The API reference's auth convention
+  had kept listing an off-machine request as a `401` cause — verified against
+  a running instance: with network access off the connection is refused at the
+  TCP layer and no HTTP response is produced.
+- `profile` on a LightBurn cut entry implies a `params.galvo` / `params.gantry`
+  block only on `kind: "normal"` entries. Image cuts carry a `profile` too but
+  never a machine block, so the previous wording was wrong for half a default
+  63-entry list (`docs/cut-settings.md`, `docs/api-reference.md`,
+  `GET /api/cuts`, `LaserCut.profile`).
 - `JobState.progress` is optional — absent while idle and on controllers that
-  can't report execution progress (e.g. Ruida during a cut).
+  can't report progress.
+- On Ruida controllers `JobState.state` is always `idle` and `progress` is
+  never present — while the job file is sent and while the machine cuts. The
+  controller runs the job on its own once it has the file, and the application
+  doesn't track it. The previous wording said Ruida reported file-transfer
+  progress; that never reaches the API (`JobState`, `docs/api-reference.md`).
 - `Position` omits any axis the controller doesn't report.
 - `GET /api/project` returns only `filename`, `modified` and `shape_count`
   when no project is loaded.
@@ -154,6 +174,12 @@ breaking changes below ship without a version bump.
   aren't replayed to new subscribers, so poll once after connecting. The event
   table now names each event's `data` schema. A `401` has an empty body.
 - `POST /api/file/open` reports its result through the `file_imported` event.
+- That result is reliable only for native project files (`.lbrn` / `.lbrn2`,
+  `.mage`). Opening a template or any other format — SVG, DXF, images —
+  reports `success: false` even when the file opened correctly, verified
+  against a running instance. Confirm those opens with `GET /api/project`
+  instead (`POST /api/file/open`, `docs/uploading.md`,
+  `docs/api-reference.md`).
 
 ### Documentation
 
@@ -170,6 +196,11 @@ breaking changes below ship without a version bump.
 - Expanded responsible-disclosure coverage for unauthorized access, capability
   bypasses/escalation, secret or token exposure, and unexpected parameter changes
   (`DISCLOSURE.md`).
+- Named a reporting channel for documentation feedback, which the policy
+  invited without saying where to send it. Ordinary documentation errors,
+  ambiguities and API questions go to repository issues; security concerns and
+  documentation errors affecting safe machine operation stay private
+  (`README.md`, `POLICY.md`, `DISCLOSURE.md`).
 - Simplified the examples' GPL-3.0 licensing explanation without changing the
   MIT default or per-subdirectory licenses (`examples/README.md`).
 

@@ -61,13 +61,18 @@ is not repeated in `sub_layers`.
 
 #### Galvo or gantry
 
-Every entry carries a `profile`:
+Every entry carries a `profile`. On `kind: "normal"` cuts it also tells you
+which machine block is present inside `params`:
 
 | `profile` | Meaning |
 |-----------|---------|
 | `galvo` | `params.galvo` is present; `params.gantry` is not |
 | `gantry` | `params.gantry` is present; `params.galvo` is not |
 | `unknown` | No device profile set up yet; neither block is present |
+
+`kind: "image"` cuts carry a `profile` as well, but **never** a machine block —
+image params have no galvo/gantry split. Check `kind` before looking for one;
+`profile` alone doesn't tell you whether a block is there.
 
 The project stores **both** sets of machine settings regardless of which
 machine is selected, so a cut setting is not intrinsically galvo or gantry.

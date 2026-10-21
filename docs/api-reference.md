@@ -67,9 +67,13 @@ is open.
 ## Conventions
 
 - **Auth:** `Authorization: Bearer <token>`. Every authorization failure returns
-  a bare `401` — missing, invalid, expired, revoked, outside your granted
-  capability, or from off-machine while network access is off. The reasons are
-  deliberately indistinguishable; don't branch on them.
+  a `401` with an undifferentiated `{"error":"Unauthorized"}` body — missing,
+  invalid, expired, revoked, or outside your granted capability. The reasons are
+  deliberately indistinguishable; don't branch on them. A request from
+  off-machine while network access is off is a different case: nothing is
+  listening on that address, so the connection is refused at the TCP layer
+  rather than answered with a `401` — see
+  [Authentication](authentication.md#failure-modes).
 - **Units:** positions (`/api/position`, the `position` event) and the
   `/api/project` `workspace` are always in mm. LightBurn cut values, the
   MillMage `tool` block, and jog settings use the user's display units — read
@@ -79,12 +83,27 @@ is open.
   one from the other. MillMage operation `settings` are always mm and mm/s.
   (`/api/project` `units.distance` is a translated UI label for display only —
   don't parse it.)
+- **Connection state:** `connected` (on `GET /api/status` and the `connection`
+  event) means a device link is open *right now*. Ruida and some other
+  non-GCode controllers connect just in time and disconnect once the transfer
+  finishes, so `connected` is `false` at rest for a perfectly healthy laser
+  and toggles around activity. It is not a presence or health check — don't
+  show it as a fault. How long a link is held open varies by controller and by
+  how the device is connected.
+- **Job state on Ruida:** `job.state` is always `idle` and `progress` is never
+  present — the controller runs a job on its own once the file is sent, and
+  the application doesn't track it. On Ruida, `idle` doesn't mean the machine
+  is free. `device.laser.controller` on `GET /api/project` tells you which
+  controller is attached.
 - **Optional fields:** a field the application can't report is omitted rather
   than zeroed — for example an axis the controller doesn't report, or job
   `progress` while idle or on controllers that don't report it. Treat absence
   as "unknown".
 - **Async import:** uploads return `202 Accepted` immediately; the result
-  arrives later as a `file_imported` event on `GET /api/events`.
+  arrives later as a `file_imported` event on `GET /api/events`. For
+  `/api/file/open` its `success` is reliable only for native project files;
+  other formats report `false` even when they opened — see
+  [Uploading](uploading.md#knowing-when-the-import-finished).
 - **Events:** the SSE stream opens with a `:connected` comment. "On change"
   events aren't replayed to a new subscriber, so call `GET /api/events/poll`
   once after connecting to get the current state.
@@ -95,9 +114,10 @@ is open.
   `product` field. The overlay endpoints are LightBurn-only and return `404`
   on MillMage.
 - **Machine differences:** LightBurn cut entries carry a `profile` of `galvo`,
-  `gantry` or `unknown`, and exactly one matching `params.galvo` /
-  `params.gantry` block. Switching the active device changes the shape for an
-  unchanged project, so don't cache it — see
+  `gantry` or `unknown`. On `kind: "normal"` entries that comes with exactly
+  one matching `params.galvo` / `params.gantry` block; `kind: "image"` entries
+  carry the `profile` but no block. Switching the active device changes the
+  shape for an unchanged project, so don't cache it — see
   [Cut settings](cut-settings.md#galvo-or-gantry).
 - **Binary responses:** `GET /api/overlay` returns `image/png` on success but
   `application/json` on error — branch on the status code, not the content

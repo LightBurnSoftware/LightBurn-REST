@@ -106,7 +106,16 @@ components:
     ConnectionStatus:
       type: object
       properties:
-        connected: { type: boolean }
+        connected:
+          type: boolean
+          description: >
+            Whether a device link is open at this moment. On Ruida and some
+            other non-GCode controllers the link is brought up just in time
+            and closed again afterwards, so this is `false` whenever no
+            transfer is in progress — which does not mean the laser is absent
+            or unusable. Not a presence or health check; expect it to toggle
+            around activity. How long a link is held open varies by controller
+            and by how the device is connected.
         device_name: { type: string, example: Shapeoko 5 Pro }
         supports_z: { type: boolean }
         supports_overrides: { type: boolean }
@@ -145,17 +154,26 @@ components:
     JobState:
       type: object
       properties:
-        state: { type: string, enum: [idle, running, paused] }
+        state:
+          type: string
+          enum: [idle, running, paused]
+          description: >
+            Whether the application is running a job on the controller. On
+            Ruida controllers this is always `idle` — while the job file is
+            being sent and while the machine cuts — because the controller
+            runs the job on its own once it has the file, and the application
+            does not track it. On Ruida, `idle` does not mean the machine is
+            free; `device.laser.controller` on `GET /api/project` identifies
+            the controller.
         progress:
           type: number
           minimum: 0
           maximum: 100
           description: >
             Percent complete. Optional — absent when not applicable: while
-            `state` is `idle`, and on controllers that cannot report execution
-            progress (Ruida reports file-transfer progress only, so the field
-            is absent for the duration of the cut). Treat absence as
-            "unknown", not as zero.
+            `state` is `idle`, and on controllers that cannot report progress.
+            Never present on Ruida controllers, whose `state` is always
+            `idle`. Treat absence as "unknown", not as zero.
 
     Overrides:
       type: object
@@ -214,8 +232,10 @@ components:
           type: string
           enum: [galvo, gantry, unknown]
           description: >
-            Which machine the settings should be read as, and therefore which
-            of `params.galvo` / `params.gantry` is present. Derived from the
+            Which machine the settings should be read as. On `kind: "normal"`
+            cuts it therefore says which of `params.galvo` / `params.gantry`
+            is present; `kind: "image"` cuts carry a `profile` too but never a
+            machine block. Derived from the
             selected device profile, so it is correct with no machine
             physically connected. `unknown` means no device profile has been
             set up yet. Switching the active device changes this, and the block
@@ -617,6 +637,22 @@ paths:
         `false` and `device_name` still names the selected device profile. The
         endpoint always answers — it does not fail or return an empty body
         because nothing is connected.
+
+        **`connected: false` does not mean the laser is unavailable.** On
+        Ruida and some other non-GCode controllers the device link is opened
+        just in time and closed again once the transfer finishes, so `false`
+        is the normal resting state for a laser that is present, powered on
+        and ready to run. It reports only whether LightBurn is actively
+        exchanging data with the device at that moment.
+
+        Treat `connected` as "a transfer is in progress", not as a presence or
+        health check, and expect it to toggle around jobs and queries. Don't
+        surface it to users as a fault or a disconnected machine. How long a
+        link is held open varies by controller and by how the device is
+        connected — a networked device may report differently from the same
+        controller over USB — so don't infer a device's behaviour from this
+        field. `device_name` is the reliable way to tell which device profile
+        is selected.
       responses:
         '200':
           description: Current connection state and device capabilities
@@ -795,6 +831,16 @@ paths:
         No position or grouping headers — irrelevant for the replace-project
         flow. Returns 202 immediately; the result is reported by the
         `file_imported` SSE event.
+
+        **`success` is reliable only for native project files** — `.lbrn` /
+        `.lbrn2` on LightBurn, `.mage` on MillMage. Opening a template
+        (`.lbt`, `.mmt`) or any other format (SVG, DXF, images, …) reports
+        `{"success": false}` with an `error` message even when the file opened
+        correctly, so for those formats `false` does not distinguish success
+        from failure. To confirm such an open, read `GET /api/project` after
+        the event: a successful open leaves `filename` empty and `shape_count`
+        counts the opened shapes. The `error` text is translated for display;
+        don't match on it. `/api/file/upload` is not affected.
       parameters:
         - name: X-Filename
           in: header
@@ -964,8 +1010,10 @@ paths:
         display units; MillMage `settings` use mm and mm/s.
 
         Each LightBurn entry carries a `profile` of `galvo`, `gantry` or
-        `unknown`, and exactly one matching machine-specific block inside
-        `params`. The project stores both sets of settings whatever machine is
+        `unknown`. On `kind: "normal"` entries that comes with exactly one
+        matching machine-specific block inside `params`; `kind: "image"`
+        entries carry the `profile` but no block at all.
+        The project stores both sets of settings whatever machine is
         selected, so the discriminator is what tells you which block the
         machine actually reads. It comes from the selected device profile and
         is correct with no machine connected. **Switching the active device
