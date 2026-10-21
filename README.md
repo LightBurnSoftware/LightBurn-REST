@@ -148,6 +148,10 @@ Third-party applications, integrations, custom automations, and derivative tools
 
 Undocumented, internal, experimental, or reverse-engineered functionality is unsupported and may change without notice.
 
+Questions about the documentation, and reports of errors, omissions, or ambiguities in it, may be raised as issues on this repository.
+
+Documentation errors that could affect safe machine operation should be reported privately instead, along with security and authentication concerns — see `SECURITY.md` and `DISCLOSURE.md`.
+
 ---
 
 ## Trademarks
@@ -162,4 +166,8 @@ See `CERTIFICATION.md` for guidance regarding compatibility claims and branding.
 
 ## Contact
 
-For support, security reporting, or API-related questions, please refer to the appropriate repository documents or contact LightBurn Software through its official support channels.
+For questions about the API or its documentation, please open an issue on this repository.
+
+For security reporting, or for documentation errors that could affect safe machine operation, please report privately as described in `SECURITY.md` and `DISCLOSURE.md` rather than in a public issue.
+
+For anything else, please refer to the appropriate repository documents or contact LightBurn Software through its official support channels.

@@ -90,12 +90,20 @@ is open.
   and toggles around activity. It is not a presence or health check — don't
   show it as a fault. How long a link is held open varies by controller and by
   how the device is connected.
+- **Job state on Ruida:** `job.state` is always `idle` and `progress` is never
+  present — the controller runs a job on its own once the file is sent, and
+  the application doesn't track it. On Ruida, `idle` doesn't mean the machine
+  is free. `device.laser.controller` on `GET /api/project` tells you which
+  controller is attached.
 - **Optional fields:** a field the application can't report is omitted rather
   than zeroed — for example an axis the controller doesn't report, or job
   `progress` while idle or on controllers that don't report it. Treat absence
   as "unknown".
 - **Async import:** uploads return `202 Accepted` immediately; the result
-  arrives later as a `file_imported` event on `GET /api/events`.
+  arrives later as a `file_imported` event on `GET /api/events`. For
+  `/api/file/open` its `success` is reliable only for native project files;
+  other formats report `false` even when they opened — see
+  [Uploading](uploading.md#knowing-when-the-import-finished).
 - **Events:** the SSE stream opens with a `:connected` comment. "On change"
   events aren't replayed to a new subscriber, so call `GET /api/events/poll`
   once after connecting to get the current state.

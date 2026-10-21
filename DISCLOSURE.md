@@ -15,6 +15,8 @@ LightBurn Software welcomes reports relating to:
 
 Please report concerns privately.
 
+Documentation errors that do not affect safe use — unclear wording, omissions, inaccuracies, or general questions about the API — do not need to be reported privately, and may be raised as issues on the API repository instead.
+
 We ask that researchers and developers avoid public disclosure until we have had a reasonable opportunity to investigate and respond.
 
 Good-faith research and responsible reporting are appreciated.

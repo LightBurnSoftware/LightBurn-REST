@@ -154,17 +154,26 @@ components:
     JobState:
       type: object
       properties:
-        state: { type: string, enum: [idle, running, paused] }
+        state:
+          type: string
+          enum: [idle, running, paused]
+          description: >
+            Whether the application is running a job on the controller. On
+            Ruida controllers this is always `idle` — while the job file is
+            being sent and while the machine cuts — because the controller
+            runs the job on its own once it has the file, and the application
+            does not track it. On Ruida, `idle` does not mean the machine is
+            free; `device.laser.controller` on `GET /api/project` identifies
+            the controller.
         progress:
           type: number
           minimum: 0
           maximum: 100
           description: >
             Percent complete. Optional — absent when not applicable: while
-            `state` is `idle`, and on controllers that cannot report execution
-            progress (Ruida reports file-transfer progress only, so the field
-            is absent for the duration of the cut). Treat absence as
-            "unknown", not as zero.
+            `state` is `idle`, and on controllers that cannot report progress.
+            Never present on Ruida controllers, whose `state` is always
+            `idle`. Treat absence as "unknown", not as zero.
 
     Overrides:
       type: object
@@ -822,6 +831,16 @@ paths:
         No position or grouping headers — irrelevant for the replace-project
         flow. Returns 202 immediately; the result is reported by the
         `file_imported` SSE event.
+
+        **`success` is reliable only for native project files** — `.lbrn` /
+        `.lbrn2` on LightBurn, `.mage` on MillMage. Opening a template
+        (`.lbt`, `.mmt`) or any other format (SVG, DXF, images, …) reports
+        `{"success": false}` with an `error` message even when the file opened
+        correctly, so for those formats `false` does not distinguish success
+        from failure. To confirm such an open, read `GET /api/project` after
+        the event: a successful open leaves `filename` empty and `shape_count`
+        counts the opened shapes. The `error` text is translated for display;
+        don't match on it. `/api/file/upload` is not affected.
       parameters:
         - name: X-Filename
           in: header
