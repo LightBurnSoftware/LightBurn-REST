@@ -90,9 +90,14 @@ is open.
   and toggles around activity. It is not a presence or health check — don't
   show it as a fault. How long a link is held open varies by controller and by
   how the device is connected.
-- **Job state on Ruida:** `job.state` is always `idle` and `progress` is never
-  present — the controller runs a job on its own once the file is sent, and
-  the application doesn't track it. On Ruida, `idle` doesn't mean the machine
+- **What is running:** while `job.state` is `running` or `paused`,
+  `job.run_type` says whether it is a job (`job`), a bounding-box frame
+  (`frame`) or an outline frame (`oframe`). It is omitted while the
+  controller is busy with something that is not a run, such as a jog, and on
+  MillMage for a job file uploaded to the machine rather than streamed.
+- **Job state on Ruida:** `job.state` is always `idle`, and `progress` and
+  `run_type` are never present — the controller runs a job on its own once
+  the file is sent, and the application doesn't track it. On Ruida, `idle` doesn't mean the machine
   is free. `device.laser.controller` on `GET /api/project` tells you which
   controller is attached.
 - **Optional fields:** a field the application can't report is omitted rather
@@ -125,6 +130,7 @@ is open.
 
 ## Stability
 
-Endpoint and field details may change between application releases until
-versioning ships — see [Versioning](versioning.md). Only documented behaviour is
-supported; undocumented responses may change without notice.
+This reference describes API 1.1 (LightBurn 2.3, MillMage 1.0). From API 1.0
+on, documented endpoints and fields change only under the rules in
+[Versioning](versioning.md). Only documented behaviour is supported;
+undocumented responses may change without notice.

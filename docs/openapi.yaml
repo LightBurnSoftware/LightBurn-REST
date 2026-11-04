@@ -1,11 +1,14 @@
 openapi: 3.1.0
 info:
   title: LightBurn / MillMage REST API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     REST API for LightBurn and MillMage. Provides file upload and import,
     read-only project and machine-state queries, cut-setting edits, and
     real-time state streaming via Server-Sent Events.
+
+    API 1.1 ships in LightBurn 2.3 and MillMage 1.0. API 1.0 shipped in
+    LightBurn 2.2.01. See `docs/versioning.md`.
 
     ## Authentication
 
@@ -82,7 +85,7 @@ components:
       properties:
         error:
           type: string
-          example: Missing 'axis' parameter
+          example: Missing 'application_name' parameter
 
     Position:
       type: object
@@ -165,6 +168,18 @@ components:
             does not track it. On Ruida, `idle` does not mean the machine is
             free; `device.laser.controller` on `GET /api/project` identifies
             the controller.
+        run_type:
+          type: string
+          enum: [job, frame, oframe]
+          description: >
+            What the application is running. `job` is a job, `frame` a
+            bounding-box frame, `oframe` an outline frame (rubber-band frame,
+            or Hull / Contour on a galvo). Optional — absent while `state` is
+            `idle`, and while the controller is busy with something that is
+            not a run, such as a jog or homing. Never present on Ruida
+            controllers, whose `state` is always `idle`, nor on MillMage for a
+            job file uploaded to the machine rather than streamed — the
+            machine runs that job, not MillMage.
         progress:
           type: number
           minimum: 0
@@ -217,6 +232,12 @@ components:
         kind: { type: string, enum: [normal, image] }
         layer_index: { type: integer }
         enabled: { type: boolean }
+        hidden:
+          type: boolean
+          description: >
+            True when the cut's Show checkbox is off. Show is a per-cut setting
+            in LightBurn, so a normal and an image cut sharing a layer can
+            differ.
         priority: { type: integer }
         in_use:
           type: boolean
@@ -268,8 +289,16 @@ components:
             cut_power: { type: number }
         mode:
           type: string
-          enum: [cut, scan, offset, image, tool]
-          description: Only present when `kind == "normal"`.
+          enum: [cut, scan, offset, pattern, image, tool, invalid]
+          description: >
+            Only present when `kind == "normal"`. The cut type name the project
+            file uses, lowercased. `invalid` for a type the API does not name,
+            such as the deprecated Scan+Cut mode found in old files.
+        sub_name:
+          type: string
+          description: >
+            Only present when `kind == "normal"`. User-assigned name of the
+            base layer (sub-layer 0); may be empty.
         params:
           description: Shape follows `kind`.
           anyOf:
@@ -297,7 +326,7 @@ components:
           description: |
             Only present when `kind == "normal"`. Additional sub-layers
             beyond the base layer; the base layer itself is reported in
-            `mode` / `params` and is not repeated here. Empty when the
+            `sub_name` / `mode` / `params` and is not repeated here. Empty when the
             layer has no sub-layers.
           items:
             type: object
@@ -315,7 +344,8 @@ components:
                 description: Whether this sub-layer is output.
               mode:
                 type: string
-                enum: [cut, scan, offset, image, tool]
+                enum: [cut, scan, offset, pattern, image, tool, invalid]
+                description: Same values as the cut's `mode`.
               params:
                 $ref: '#/components/schemas/LaserCutParams'
 
@@ -475,12 +505,12 @@ components:
           enum:
             - profile
             - pocket
-            - rest_pocket
+            - restpocket
             - drill
-            - dogbone_slot
-            - chamfer_profile
-            - inlay_female
-            - inlay_male
+            - dogboneslot
+            - chamfer
+            - femalepocket
+            - maleinlay
             - flute
             - surfacing
             - face
@@ -488,10 +518,15 @@ components:
             - relief
             - roughing
             - texturing
-            - vcarve
-            - vcarve_clear
+            - v-carving
+            - vcarveclear
+            - vcarveinlayplug
+            - vcarveinlaypocket
             - image
             - invalid
+          description: >
+            The operation type name the project file uses, lowercased.
+            `invalid` for a type the API does not name.
         tool:
           type: object
           properties:
@@ -749,7 +784,11 @@ paths:
           schema:
             type: string
             default: upload.lbrn2
-          description: Filename for the uploaded file
+          description: |
+            Filename for the uploaded file; its extension picks the importer.
+            Only the last path component is used — any directory part is
+            dropped — and an empty name, `.` or `..` becomes `upload.lbrn2`.
+            The response's `filename` is the name actually used.
         - name: X-Group-Shapes
           in: header
           schema:
@@ -847,7 +886,10 @@ paths:
           schema:
             type: string
             default: upload.lbrn2
-          description: Filename hint; picks the loader/translator.
+          description: |
+            Filename hint; picks the loader/translator. Reduced to its last
+            path component as for `/api/file/upload`; the response's
+            `filename` is the name actually used.
       requestBody:
         required: true
         content:
@@ -973,7 +1015,15 @@ paths:
                         type:
                           type: string
                           enum: [normal, tool, none]
-                        hidden: { type: boolean }
+                        hidden:
+                          type: boolean
+                          description: >
+                            On LightBurn, Show is set per cut rather than per
+                            layer, so this is derived: true when every cut on
+                            the layer that is in use has Show off, or, when
+                            none is in use, when the layer's normal cut has
+                            Show off. Read `LaserCut.hidden` on
+                            `GET /api/cuts` for the per-cut value.
                         in_use:
                           type: boolean
                           description: True if any shape references this layer.
@@ -1083,8 +1133,9 @@ paths:
         open — the index is checked first.
 
         Editable fields (LightBurn):
-        - `kind: "normal"` cuts: `name`, `enabled`, `mode`
-          (`cut` / `scan` / `offset`), `params` (any `LaserCutParams`
+        - `kind: "normal"` cuts: `name`, `enabled`, `sub_name`, `mode`
+          (`cut` / `scan` / `offset`; `pattern` is reported but can't be
+          set), `params` (any `LaserCutParams`
           field), and existing `sub_layers` addressed by `index` (`name`,
           `enabled`, `mode`, `params`). Adding or removing sub-layers is
           not supported.
@@ -1130,6 +1181,9 @@ paths:
                 name: { type: string, minLength: 1 }
                 enabled: { type: boolean }
                 mode: { type: string, enum: [cut, scan, offset] }
+                sub_name:
+                  type: string
+                  description: Normal cuts only — the base layer's name.
                 in_use: { type: boolean, readOnly: true }
                 shape_count: { type: integer, readOnly: true }
                 profile: { type: string, readOnly: true }

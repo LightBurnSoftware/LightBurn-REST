@@ -1,10 +1,11 @@
 # Versioning
 
-> **Status: planned — not yet implemented.**
-> This page describes the versioning model LightBurn Software intends to
-> introduce. The current API does **not** yet expose a version negotiation
-> mechanism. The specification is published at `1.0.0` as a baseline. Details
-> below marked _(proposed)_ are subject to change before they ship.
+> **Status: in effect from API 1.0.**
+> The API is versioned and stable from version 1.0, which shipped in
+> LightBurn 2.2.01. The principles below apply from that version on. The API
+> does **not** yet expose a version negotiation or discovery mechanism;
+> sections marked _(proposed)_ describe those and are subject to change before
+> they ship.
 
 ## Why versioning
 
@@ -15,7 +16,7 @@ against and a predictable path when things change.
 
 ## Principles
 
-These commitments will hold once versioning ships:
+These commitments hold from API 1.0:
 
 - **The specification is the contract.** Each API version corresponds to a
   published `openapi.yaml`. If it isn't documented, it isn't part of the version.
@@ -71,8 +72,17 @@ endpoint) is planned so clients can adapt at runtime. Not yet available.
 
 The API version is **not** the LightBurn or MillMage application version. One
 application release may ship a given API version; a later release may keep the
-same API version (no contract change) or introduce a new one. The mapping will
-be recorded in [`../CHANGELOG.md`](../CHANGELOG.md).
+same API version (no contract change) or introduce a new one. The mapping is
+recorded here and in [`../CHANGELOG.md`](../CHANGELOG.md):
+
+| API version | LightBurn | MillMage |
+|-------------|-----------|----------|
+| 1.0 | 2.2.01 | — |
+| 1.1 | 2.3 | 1.0 |
+
+MillMage is covered from API 1.1. No stable MillMage release served the API
+before MillMage 1.0; its pre-release builds tracked the API as it changed and
+are not covered by any version guarantee.
 
 ## Guidance for integrators
 
@@ -86,10 +96,9 @@ be recorded in [`../CHANGELOG.md`](../CHANGELOG.md).
 
 ## Current state, concretely
 
-Until versioning ships:
-
-- There is one published specification, `1.0.0`.
-- No version header or path prefix is required or honoured.
-- Treat the current API as **pre-stable**: it may change between application
-  releases without a version bump. Pin your testing to the application versions
-  you support.
+- The current specification is `1.1.0` (`openapi.yaml` `info.version`).
+- No version header or path prefix is required or honoured, and the running API
+  version can't be queried yet. Infer it from the application version using the
+  table above.
+- Breaking changes are made only in a new major version, and are recorded in
+  the changelog.

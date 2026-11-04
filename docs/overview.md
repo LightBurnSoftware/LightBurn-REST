@@ -116,8 +116,9 @@ you need. See [Capabilities](capabilities.md) for the per-endpoint breakdown.
   that move or operate machinery. Changing cut settings edits the project only
   — it doesn't start, stop or alter a job already sent to the machine.
 - **Not a safety system.** See [`../SAFETY.md`](../SAFETY.md).
-- **Not version-stable yet.** Behaviour may change between application
-  releases — see [Versioning](versioning.md).
+- **Not frozen.** The API is stable from version 1.0 and changes only under
+  the rules in [Versioning](versioning.md): breaking changes need a new major
+  version, and new fields or enum values can appear in any release.
 
 For supported API functionality that supplies or modifies operational parameters,
 the operator must review and verify the resulting job and its settings in LightBurn

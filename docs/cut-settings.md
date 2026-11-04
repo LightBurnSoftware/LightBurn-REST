@@ -53,11 +53,19 @@ and an image cut sharing one layer are reported separately. The per-layer count
 cannot distinguish them: put a vector shape and an image both on C00 and the
 layer reports `shape_count: 2`, while the two cut entries each report `1`.
 
-Each normal cut reports its base layer in `mode` and `params`
+Each normal cut reports its base layer in `sub_name`, `mode` and `params`
 (`LaserCutParams`: speed, power, passes, frequency, …). Any additional
 sub-layers are in `sub_layers`, each with its own `index` (starting at `1`;
 the base layer is `0`), `name`, `enabled`, `mode` and `params`. The base layer
 is not repeated in `sub_layers`.
+
+`mode` is the cut type name the project file uses, lowercased: `cut`, `scan`,
+`offset`, `pattern`, `image` or `tool`. A type the API does not name, such as
+the deprecated Scan+Cut mode in old files, reports `invalid`.
+
+`hidden` is the cut's Show checkbox, inverted. Show is set per cut in
+LightBurn, so a normal and an image cut on the same layer can differ;
+`hidden` on `GET /api/layers` is derived from the layer's cuts.
 
 #### Galvo or gantry
 
@@ -120,7 +128,9 @@ there is no `priority` either.
 
 Each operation reports:
 
-- `operation` — the operation type (`profile`, `pocket`, `vcarve`, …).
+- `operation` — the operation type, as the name the project file uses,
+  lowercased (`profile`, `pocket`, `restpocket`, `v-carving`, …). See
+  `CncCut.operation` in [`openapi.yaml`](openapi.yaml) for the full list.
 - `tool` — the assigned tool's name, diameter, feed/plunge rates and spindle
   RPM.
 - `settings` — every stored property of the operation, keyed by name (e.g.
@@ -201,7 +211,8 @@ sequenceDiagram
 
 **LightBurn, `kind: "normal"` cuts:**
 
-- `name`, `enabled`, `mode` (`cut`, `scan` or `offset`)
+- `name`, `enabled`, `sub_name`, `mode` (`cut`, `scan` or `offset`;
+  `pattern` is reported but can't be set)
 - `params` — any `LaserCutParams` field, plus at most one machine block
 - `params.galvo` or `params.gantry` — must match the entry's `profile`
 - cut-level: `negative`, `pass_through`, `enable_cleanup`,

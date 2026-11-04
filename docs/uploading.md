@@ -30,7 +30,9 @@ print(urllib.request.urlopen(req).read())   # {"status": "accepted", ...}
 ```
 
 The `X-Filename` extension selects the loader/translator, so set it to match the
-payload (`.svg`, `.dxf`, `.lbrn2`, …).
+payload (`.svg`, `.dxf`, `.lbrn2`, …). Send a bare filename: only the last path
+component is used, and an empty name, `.` or `..` becomes `upload.lbrn2`. The
+`filename` in the `202` response is the name actually used.
 
 ### Placement headers (`/api/file/upload` only)
 

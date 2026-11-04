@@ -3,15 +3,68 @@
 This changelog records changes to the LightBurn / MillMage REST API
 documentation and specification. Dates use ISO 8601.
 
-## Unreleased
+## 1.1 — Unreleased (LightBurn 2.3, MillMage 1.0)
+
+A minor version: every change is backward-compatible with 1.0. It is also the
+first version that covers MillMage, from MillMage 1.0 on (see
+`docs/versioning.md`).
+
+### Added
+
+- `JobState.run_type` on the `job` event and `GET /api/events/poll`: `job`,
+  `frame` (bounding-box frame) or `oframe` (outline frame). Absent while idle,
+  while busy with something that is not a run, on Ruida, and on MillMage for a
+  job file uploaded to the machine rather than streamed.
+- `LaserCut.hidden` (the cut's Show checkbox) and `LaserCut.sub_name` (the base
+  layer's name). `sub_name` can also be set through `POST /api/cuts/{index}`.
+  LightBurn 2.2.01 already returns and accepts both; 1.0 did not document them.
+- `pattern` (Pattern Fill, new in LightBurn 2.3) and `invalid` in
+  `LaserCut.mode`. `mode` is now documented as the cut type name the project
+  file uses, lowercased; the existing values are unchanged.
+- `vcarveinlayplug` and `vcarveinlaypocket` in `CncCut.operation`.
+
+### MillMage pre-release changes
+
+Not breaking against 1.0, which does not cover MillMage, but clients written
+against the MillMage 1.0.00 betas need updating:
+
+- `CncCut.operation` values are now the type names the project file uses,
+  lowercased: `rest_pocket` → `restpocket`, `dogbone_slot` → `dogboneslot`,
+  `chamfer_profile` → `chamfer`, `inlay_female` → `femalepocket`,
+  `inlay_male` → `maleinlay`, `vcarve` → `v-carving`,
+  `vcarve_clear` → `vcarveclear`. MillMage 1.0.00 Beta 1 and Beta 2 report the
+  old names.
+
+### Clarified
+
+- `X-Filename` is reduced to its last path component, and the `filename` in
+  the `202` response is the name actually used (`docs/uploading.md`).
+- On LightBurn, `hidden` on `GET /api/layers` is derived from the layer's cuts,
+  because Show is set per cut.
+
+### Documentation
+
+- The `ErrorResponse` example named a parameter of an endpoint outside the
+  published API.
+
+## 1.0 — 2026-11-02 (LightBurn 2.2.01)
+
+First stable version. From here on the API follows the rules in
+`docs/versioning.md`: breaking changes need a new major version. MillMage is
+not covered by 1.0; it joins at 1.1.
+
+No API changes since LightBurn 2.2.00: the contract is the specification as
+published by the two 2.2.00 sections below, declared stable.
+
+## 2026-10-19 — LightBurn 2.2.00: cut settings coverage (pre-stable)
 
 Cut settings coverage. `GET /api/cuts` previously reported 16 of the roughly
 75 settings the application's cut-settings editors write; this release closes
 that gap and restructures the payload so clients can tell which settings apply
 to the attached machine. LightBurn only — MillMage is unchanged.
 
-The API is still pre-stable (see `docs/versioning.md`), so the breaking
-changes below ship without a version bump.
+The API was pre-stable at the time, so the breaking changes below shipped
+without a version bump.
 
 ### Added
 
@@ -62,11 +115,14 @@ changes below ship without a version bump.
   sub-layer stack, so a client computing total passes from the response was
   low by that factor.
 
-## Unreleased
+## 2026-10-19 — LightBurn 2.2.00: specification sync (pre-stable)
 
 Specification synchronised with the current LightBurn / MillMage
-implementation. The API is still pre-stable (see `docs/versioning.md`), so the
-breaking changes below ship without a version bump.
+implementation. The API was pre-stable at the time, so the breaking changes
+below shipped without a version bump.
+
+Shipped in LightBurn 2.2.00. The MillMage changes first shipped in
+MillMage 1.0.00 Beta 1 (2026-10-22).
 
 ### Added
 
@@ -210,9 +266,11 @@ breaking changes below ship without a version bump.
   previously converted it from the display units, which produced a workspace
   25.4× too large when LightBurn / MillMage was set to inches.
 
-## 1.0 — Initial public release
+## Initial public release (pre-stable)
 
-First public release of the API specification and documentation.
+First public release of the API specification and documentation, published as
+specification `1.0.0` before the API was declared stable. It is not API
+version 1.0, which is the LightBurn 2.2.01 contract above.
 
 ### Specification
 
@@ -231,8 +289,8 @@ First public release of the API specification and documentation.
   (`docs/capabilities.md`).
 - File upload and placement guide (`docs/uploading.md`).
 - Human-readable API reference index (`docs/api-reference.md`).
-- Versioning model (`docs/versioning.md`). Describes the planned versioning
-  approach; a version negotiation mechanism is not yet implemented.
+- Versioning model (`docs/versioning.md`), at the time a plan; it took effect
+  with API 1.0.
 - Deprecation policy (`docs/deprecations.md`). No deprecations at this time.
 
 ### Legal & policy
