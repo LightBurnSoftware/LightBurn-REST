@@ -4,7 +4,7 @@ The authoritative, machine-readable contract is [`openapi.yaml`](openapi.yaml).
 Render it with [`index.html`](index.html) (Redoc) or any OpenAPI viewer. This
 page is a human-friendly index grouped by capability.
 
-All endpoints except `GET /` and `POST /api/connect` require a Bearer token
+All endpoints except `GET /`, `GET /api/version` and `POST /api/connect` require a Bearer token
 (see [Authentication](authentication.md)). Base URL: `http://localhost:19520`
 (LightBurn) or `19521` (MillMage) — these ports are fixed per product. Replace
 `localhost` with the host's address when the application has network access
@@ -18,6 +18,7 @@ most recently focused window — see [Overview](overview.md#multiple-instances).
 | Method & path | Description |
 |---------------|-------------|
 | `GET /` | Placeholder HTML page |
+| `GET /api/version` | API version, product and application version (API 1.1+) |
 | `POST /api/connect` | Pair a localhost application; returns a shared secret |
 
 ## `state` capability — read-only machine & job state

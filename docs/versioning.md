@@ -2,10 +2,9 @@
 
 > **Status: in effect from API 1.0.**
 > The API is versioned and stable from version 1.0, which shipped in
-> LightBurn 2.2.01. The principles below apply from that version on. The API
-> does **not** yet expose a version negotiation or discovery mechanism;
-> sections marked _(proposed)_ describe those and are subject to change before
-> they ship.
+> LightBurn 2.2.01. The principles below apply from that version on. From 1.1
+> the running version can be queried; version negotiation is still
+> _(proposed)_ and subject to change before it ships.
 
 ## Why versioning
 
@@ -26,6 +25,8 @@ These commitments hold from API 1.0:
   - **Minor** — backward-compatible additions (new endpoints, new optional
     fields, new enum values).
   - **Patch** — documentation clarifications and fixes with no behavioural change.
+    Patch numbers version the documentation only (`openapi.yaml` `info.version`
+    and this repository's tags); the API itself reports `major.minor`.
 - **Additive changes are not breaking.** Clients must ignore unknown fields and
   tolerate new enum values, so minor versions don't break them.
 - **Deprecate before removal.** Functionality slated for removal is marked
@@ -62,11 +63,17 @@ flowchart TD
     D --> H
 ```
 
-## Discovering the version _(proposed)_
+## Discovering the version
 
-A lightweight, unauthenticated way to discover the running API version (for
-example a `version` field on an existing metadata response, or a dedicated
-endpoint) is planned so clients can adapt at runtime. Not yet available.
+From API 1.1, `GET /api/version` returns the running API version, the product
+and the application version:
+
+```json
+{ "api_version": "1.1", "product": "lightburn", "app_version": "2.3.00" }
+```
+
+It needs no token and works before pairing, so check it first. Compare
+`api_version`, not `app_version`. A 404 means API 1.0.
 
 ## Relationship to application versions
 
@@ -97,8 +104,7 @@ are not covered by any version guarantee.
 ## Current state, concretely
 
 - The current specification is `1.1.0` (`openapi.yaml` `info.version`).
-- No version header or path prefix is required or honoured, and the running API
-  version can't be queried yet. Infer it from the application version using the
-  table above.
+- No version header or path prefix is required or honoured.
+- `GET /api/version` reports the running API version (1.1 and later).
 - Breaking changes are made only in a new major version, and are recorded in
   the changelog.

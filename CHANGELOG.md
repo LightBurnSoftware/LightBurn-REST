@@ -11,6 +11,8 @@ first version that covers MillMage, from MillMage 1.0 on (see
 
 ### Added
 
+- `GET /api/version`: API version, product and application version. Needs no
+  token, so clients can check compatibility before pairing.
 - `JobState.run_type` on the `job` event and `GET /api/events/poll`: `job`,
   `frame` (bounding-box frame) or `oframe` (outline frame). Absent while idle,
   while busy with something that is not a run, on Ruida, and on MillMage for a

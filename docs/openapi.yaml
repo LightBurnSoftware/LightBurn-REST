@@ -12,7 +12,7 @@ info:
 
     ## Authentication
 
-    All endpoints except `POST /api/connect` and `GET /`
+    All endpoints except `POST /api/connect`, `GET /` and `GET /api/version`
     require a Bearer token derived from a shared secret using HMAC-SHA256:
 
     ```
@@ -592,6 +592,45 @@ paths:
             text/html:
               schema:
                 type: string
+
+  /api/version:
+    get:
+      summary: API and application version
+      description: |
+        Reports the API version the application serves. Needs no token and
+        no pairing, so a client can check compatibility before calling
+        `POST /api/connect`.
+
+        Added in API 1.1. An API 1.0 application (LightBurn 2.2.01) returns
+        404 for this path.
+      security: []
+      responses:
+        '200':
+          description: Version information
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [api_version, product, app_version]
+                properties:
+                  api_version:
+                    type: string
+                    description: |
+                      API version, major.minor. Matches the major.minor of
+                      `info.version`; the patch digit there marks
+                      documentation-only fixes. Base compatibility checks on
+                      this.
+                    example: '1.1'
+                  product:
+                    type: string
+                    enum: [lightburn, millmage]
+                  app_version:
+                    type: string
+                    description: |
+                      Full application version string. Pre-release builds
+                      append build details. For display and bug reports
+                      only; don't parse it.
+                    example: 2.3.00
 
   /api/connect:
     post:
