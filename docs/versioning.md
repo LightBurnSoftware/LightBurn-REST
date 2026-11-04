@@ -73,7 +73,11 @@ and the application version:
 ```
 
 It needs no token and works before pairing, so check it first. Compare
-`api_version`, not `app_version`. A 404 means API 1.0.
+`api_version`, not `app_version`.
+
+> **404 means API 1.0.** API 1.0, the initial release, predates this endpoint.
+> A released version that returns 404 for `GET /api/version` serves API 1.0
+> (LightBurn 2.2.01).
 
 ## Relationship to application versions
 
@@ -106,5 +110,7 @@ are not covered by any version guarantee.
 - The current specification is `1.1.0` (`openapi.yaml` `info.version`).
 - No version header or path prefix is required or honoured.
 - `GET /api/version` reports the running API version (1.1 and later).
+- Each documentation release is tagged `vMAJOR.MINOR.PATCH` in this
+  repository; `v1.0.0` is the API 1.0 documentation.
 - Breaking changes are made only in a new major version, and are recorded in
   the changelog.

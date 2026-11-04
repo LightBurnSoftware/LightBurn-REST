@@ -601,8 +601,8 @@ paths:
         no pairing, so a client can check compatibility before calling
         `POST /api/connect`.
 
-        Added in API 1.1. An API 1.0 application (LightBurn 2.2.01) returns
-        404 for this path.
+        Added in API 1.1. **A released version that returns 404 for this
+        path serves API 1.0, the initial release** (LightBurn 2.2.01).
       security: []
       responses:
         '200':
