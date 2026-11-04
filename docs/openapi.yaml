@@ -225,7 +225,7 @@ components:
 
     LaserCut:
       type: object
-      required: [index, name, kind, layer_index, enabled, priority, profile, params]
+      required: [index, name, kind, layer_index, enabled, hidden, priority, profile, params]
       properties:
         index: { type: integer }
         name: { type: string }
