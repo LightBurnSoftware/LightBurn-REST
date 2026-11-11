@@ -12,8 +12,8 @@ If the user runs more than one copy of the application, the port is served by
 the most recently focused one — see
 [Multiple instances](overview.md#multiple-instances).
 
-The full endpoint reference is [`openapi.yaml`](openapi.yaml) (render it with
-[`index.html`](index.html) or any OpenAPI viewer).
+The full endpoint reference is [`openapi.yaml`](openapi.yaml) (read it rendered in the
+[full reference](https://apidocs.lightburnsoftware.com/reference/) or load it into any OpenAPI viewer).
 
 ## 1. Pair to obtain a shared secret
 
@@ -90,4 +90,4 @@ A missing or invalid token returns `401`. All endpoints except `/` and
 - [Capabilities](capabilities.md) — what each token scope unlocks.
 - [Uploading files](uploading.md) — import artwork and projects.
 - [Cut settings](cut-settings.md) — read and change layer / operation settings.
-- [`examples/spurline`](../examples/spurline/) — a working FreeCAD client.
+- [`examples/spurline`](https://github.com/LightBurnSoftware/LightBurn-REST/tree/main/examples/spurline) — a working FreeCAD client.
