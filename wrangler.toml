@@ -1,0 +1,5 @@
+name = "lbapidocs"
+compatibility_date = "2026-11-11"
+# Static site only: there are no Pages Functions. `bash build.sh` (the Pages
+# build command) builds the MkDocs guides and the Redoc reference into site/.
+pages_build_output_dir = "site"

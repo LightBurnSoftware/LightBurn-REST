@@ -1,0 +1,3 @@
+# Site build for apidocs.lightburnsoftware.com (see build.sh)
+mkdocs==1.6.1
+mkdocs-material==9.8.0

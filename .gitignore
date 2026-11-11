@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 *.pyo
 .claude/
+.build/
+site/
+.venv/
+node_modules/

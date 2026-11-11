@@ -1,0 +1,10 @@
+/* LightBurn colour scheme, from DocsRestructure LBDocs/docs/css/extra.css */
+[data-md-color-scheme="lightburn"] {
+    --md-primary-fg-color: #A11D2D;
+    --md-primary-fg-color--dark: #701625;
+
+    --md-typeset-a-color: var(--md-primary-fg-color);
+
+    --md-accent-fg-color: #EB2227;
+    --md-accent-fg-color--dark: #D12129;
+}

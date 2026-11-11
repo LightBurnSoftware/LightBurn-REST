@@ -50,6 +50,10 @@ Please review [SAFETY.md](SAFETY.md) before implementing machine-related workflo
 
 ## Contents
 
+The documentation is published at <https://apidocs.lightburnsoftware.com>,
+built from this repository by Cloudflare Pages on every push to `main`
+(`bash build.sh` builds it locally into `site/`).
+
 | Path | What it is |
 |------|------------|
 | [`docs/openapi.yaml`](docs/openapi.yaml) | The API specification — single source of truth |

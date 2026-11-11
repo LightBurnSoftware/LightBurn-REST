@@ -1,0 +1,106 @@
+# Site for apidocs.lightburnsoftware.com. Cloudflare Pages runs build.sh on
+# every push; build.sh assembles .build/src from docs/, website/ and the root
+# legal documents, so links like ../SAFETY.md resolve the same way they do on
+# GitHub. Edit the sources, never .build/.
+site_name: LightBurn / MillMage REST API
+site_author: LightBurn Software
+site_description: >-
+  Documentation for the LightBurn and MillMage REST API
+site_url: https://apidocs.lightburnsoftware.com/
+repo_url: https://github.com/LightBurnSoftware/LightBurn-REST
+repo_name: LightBurnSoftware/LightBurn-REST
+edit_uri: ""
+copyright: >
+  Copyright &copy; <a href="https://lightburnsoftware.com/">LightBurn Software</a>
+
+docs_dir: .build/src
+site_dir: site
+use_directory_urls: true
+
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: info
+
+theme:
+  name: material
+  favicon: assets/favicon.ico
+  logo: assets/logo.png
+  palette:
+    - scheme: lightburn
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.path
+    - navigation.top
+    - navigation.indexes
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - content.code.copy
+
+extra_css:
+  - assets/extra.css
+
+markdown_extensions:
+  - abbr
+  - attr_list
+  - admonition
+  - md_in_html
+  - def_list
+  - footnotes
+  - tables
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      toc_depth: 4
+      permalink: true
+      permalink_title: Anchor link to this section
+
+plugins:
+  - search
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/LightBurnSoftware/LightBurn-REST
+    - icon: fontawesome/brands/discourse
+      link: https://forum.lightburnsoftware.com/
+      title: Support Forum
+    - icon: octicons/globe-16
+      link: https://lightburnsoftware.com/
+
+nav:
+  - Home: index.md
+  - Guides:
+      - Overview: guide/overview.md
+      - Getting started: guide/getting-started.md
+      - Authentication: guide/authentication.md
+      - Capabilities: guide/capabilities.md
+      - Uploading: guide/uploading.md
+      - Cut settings: guide/cut-settings.md
+      - Versioning: guide/versioning.md
+      - Deprecations: guide/deprecations.md
+  - API reference:
+      - Endpoint index: guide/api-reference.md
+      - Full reference: /reference/
+      - openapi.yaml: guide/openapi.yaml
+  - Changelog: CHANGELOG.md
+  - Legal & policy:
+      - API EULA: API-EULA.md
+      - Safety: SAFETY.md
+      - Policy: POLICY.md
+      - Certification: CERTIFICATION.md
+      - Security: SECURITY.md
+      - Disclosure: DISCLOSURE.md
+      - Notice: NOTICE.md

@@ -1,7 +1,7 @@
 # API Reference
 
 The authoritative, machine-readable contract is [`openapi.yaml`](openapi.yaml).
-Render it with [`index.html`](index.html) (Redoc) or any OpenAPI viewer. This
+Read it rendered in the [full reference](https://apidocs.lightburnsoftware.com/reference/) or load it into any OpenAPI viewer. This
 page is a human-friendly index grouped by capability.
 
 All endpoints except `GET /` and `POST /api/connect` require a Bearer token
