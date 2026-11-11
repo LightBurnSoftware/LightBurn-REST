@@ -44,5 +44,4 @@ Use of the API is governed by the [API EULA](API-EULA.md).
 Questions about the documentation, and reports of errors in it, can be raised
 as [issues on GitHub](https://github.com/LightBurnSoftware/LightBurn-REST/issues).
 Security concerns, and documentation errors that could affect safe machine
-operation, should be reported privately as described in
-[Security](SECURITY.md).
+operation, should be reported privately as described in [Security](SECURITY.md).
